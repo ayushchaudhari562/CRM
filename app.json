@@ -7,6 +7,15 @@
     "userInterfaceStyle": "dark",
     "backgroundColor": "#0B0C0D",
     "scheme": "salescrm",
+    "android": {
+      "package": "com.salescrm.app",
+      "permissions": [
+        "CAMERA",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "RECORD_AUDIO"
+      ]
+    },
     "web": {
       "bundler": "metro",
       "output": "single",
