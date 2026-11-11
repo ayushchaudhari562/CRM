@@ -4,43 +4,77 @@ import { MapPin, Check } from 'lucide-react-native';
 import { useTheme, fonts } from '../src/theme';
 import { Button, Field, SegmentedControl } from '../src/components';
 import { useAppStore } from '../src/store';
-import { APP_NAME, adminUser, currentUser } from '../src/mocks/data';
+import { APP_NAME } from '../src/config';
+import { supabase, toE164 } from '../src/services/supabase';
+import { crmService, ApiError } from '../src/services';
+import { DEV_LOGIN, clearSession, saveDevToken } from '../src/services/session';
 import type { Role } from '../src/types';
 
 const ROLE_OPTIONS: { value: Role; label: string }[] = [
   { value: 'salesman', label: 'Salesman' },
   { value: 'admin', label: 'Manager' },
 ];
+const ROLE_LABEL: Record<Role, string> = { salesman: 'Salesman', admin: 'Manager' };
 
 export default function LoginScreen() {
   const { theme } = useTheme();
-  const { login } = useAppStore();
+  const { setUser } = useAppStore();
 
+  // The tab is only what the user INTENDS. The real role comes from our database after OTP.
   const [loginAs, setLoginAs] = useState<Role>('salesman');
-  const [phoneOrId, setPhoneOrId] = useState('+91 98765 43210');
-  const [otpSent, setOtpSent] = useState(false);
+  const [phoneInput, setPhoneInput] = useState('');
+  const [phone, setPhone] = useState<string | null>(null); // E.164, set once the OTP is sent
   const [otp, setOtp] = useState('');
   const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
   const [installed, setInstalled] = useState(false);
 
-  const handleSendOtp = () => {
-    if (!phoneOrId || phoneOrId.trim().length < 6) {
-      setError('Please enter a valid phone number or employee ID');
-      return;
-    }
+  const handleSendOtp = async () => {
+    const e164 = toE164(phoneInput);
+    if (!e164) return setError('Enter a valid 10-digit mobile number');
     setError('');
-    setOtpSent(true);
+    if (DEV_LOGIN) return setPhone(e164); // TEMPORARY: our API checks the fixed OTP on Verify
+    setBusy(true);
+    const { error: err } = await supabase.auth.signInWithOtp({ phone: e164 });
+    setBusy(false);
+    if (err) return setError(err.message || 'Could not send OTP. Please try again.');
+    setPhone(e164);
   };
 
-  const handleVerifyOtp = () => {
-    if (!otp || otp.length < 4) {
-      setError('Please enter the 4-digit OTP (e.g. 1234)');
-      return;
-    }
+  const fail = async (message: string) => {
+    await clearSession();
+    setBusy(false);
+    setError(message);
+  };
+
+  const handleVerifyOtp = async () => {
+    if (!phone) return;
+    if (!/^\d{6}$/.test(otp)) return setError('Enter the 6-digit OTP');
+    setBusy(true);
     setError('');
-    // MOCK: the chosen tab decides the role. With a real backend, the server must
-    // return the user (and role) for this phone number after OTP check.
-    login(loginAs === 'admin' ? adminUser : currentUser); // route guard then opens the right home
+    try {
+      let me;
+      if (DEV_LOGIN) {
+        const res = await crmService.devLogin(phone, otp); // throws on wrong OTP / unknown number
+        await saveDevToken(res.token);
+        me = res.user;
+      } else {
+        const { error: err } = await supabase.auth.verifyOtp({ phone, token: otp, type: 'sms' });
+        if (err) return fail('Wrong or expired OTP. Please try again.');
+        me = await crmService.getMe(); // role from our DB
+      }
+      if (me.role !== loginAs)
+        return fail(`This number is not registered as ${ROLE_LABEL[loginAs]}.`);
+      setUser(me); // route guard then opens the right home
+    } catch (e) {
+      await fail(e instanceof ApiError ? e.message : 'Could not sign in. Please try again.');
+    }
+  };
+
+  const changeNumber = () => {
+    setPhone(null);
+    setOtp('');
+    setError('');
   };
 
   return (
@@ -69,58 +103,73 @@ export default function LoginScreen() {
           </View>
 
           {/* Inputs & Actions */}
-          {!otpSent ? (
+          {!phone ? (
             <View style={styles.form}>
               <SegmentedControl options={ROLE_OPTIONS} value={loginAs} onChange={setLoginAs} />
               <Field
-                label="Phone number or employee ID"
-                value={phoneOrId}
+                label="Mobile number"
+                value={phoneInput}
                 onChangeText={(val) => {
-                  setPhoneOrId(val);
+                  setPhoneInput(val);
                   if (error) setError('');
                 }}
                 keyboardType="phone-pad"
                 autoCapitalize="none"
                 error={error}
-                placeholder="+91 98765 43210"
+                placeholder="98765 43210"
               />
 
-              <Button title="Send OTP" onPress={handleSendOtp} variant="primary" size="normal" />
+              <Button
+                title="Send OTP"
+                onPress={handleSendOtp}
+                loading={busy}
+                variant="primary"
+                size="normal"
+              />
             </View>
           ) : (
             <View style={styles.form}>
               <Field
-                label="Enter 4-digit OTP"
+                label={`Enter the 6-digit OTP sent to ${phone}`}
                 value={otp}
                 onChangeText={(val) => {
                   setOtp(val);
                   if (error) setError('');
                 }}
                 keyboardType="number-pad"
-                maxLength={4}
+                maxLength={6}
+                autoComplete="sms-otp"
+                textContentType="oneTimeCode"
                 error={error}
-                hint="Use mock code: 1234"
-                placeholder="1234"
+                placeholder="123456"
               />
 
               <Text style={[styles.hint, { color: theme.colors.muted }]}>
-                Signing in as {loginAs === 'admin' ? 'Manager' : 'Salesman'}
+                Signing in as {ROLE_LABEL[loginAs]}
               </Text>
               <Button
                 title="Verify & Sign in"
                 onPress={handleVerifyOtp}
+                loading={busy}
                 variant="primary"
                 size="normal"
               />
 
               <Button
                 title="Change phone number"
-                onPress={() => setOtpSent(false)}
+                onPress={changeNumber}
+                disabled={busy}
                 variant="outline"
                 size="compact"
               />
             </View>
           )}
+
+          {DEV_LOGIN ? (
+            <Text style={[styles.hint, { color: theme.colors.warning }]}>
+              Test login mode (fixed OTP)
+            </Text>
+          ) : null}
 
           {/* Biometrics hint */}
           <Text style={[styles.hint, { color: theme.colors.muted }]}>
@@ -147,7 +196,7 @@ export default function LoginScreen() {
                 variant="white"
                 size="small"
                 fullWidth={false}
-                icon={installed ? <Check size={16} color="#0B0C0D" /> : undefined}
+                icon={installed ? <Check size={16} color={theme.colors.bg} /> : undefined}
                 style={{ paddingHorizontal: 20 }}
               />
             </View>

@@ -9,27 +9,60 @@ import {
   Modal,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import Svg, { Rect, Path, Circle } from 'react-native-svg';
-import { MapPin, Search, Play, Pause, X } from 'lucide-react-native';
+import { MapPin, Search, X } from 'lucide-react-native';
 import { useTheme, fonts } from '../../src/theme';
-import { Button, Field } from '../../src/components';
-import { APP_NAME, salesmanProgress } from '../../src/mocks/data';
+import { Button, Field, LoadingView, ErrorView } from '../../src/components';
+import { APP_NAME } from '../../src/config';
+import { crmService } from '../../src/services';
+import { formatDay, formatINR, formatINRShort, timeAgo } from '../../src/utils/format';
+import { useAppStore } from '../../src/store';
 
 export default function AdminWebBentoScreen() {
   const { theme, setThemeVariant } = useTheme();
+  const { user } = useAppStore();
   const router = useRouter();
   const { width } = useWindowDimensions();
 
   const [activeNav, setActiveNav] = useState<'Overview' | 'Team' | 'Map' | 'Reports'>('Overview');
-  const [isPlayingVoice, setIsPlayingVoice] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [newSalesmanName, setNewSalesmanName] = useState('');
   const [newSalesmanPhone, setNewSalesmanPhone] = useState('');
+  const [addError, setAddError] = useState('');
+
+  const qc = useQueryClient();
+  const overviewQ = useQuery({
+    queryKey: ['admin-overview'],
+    queryFn: crmService.getAdminOverview,
+    refetchInterval: 60_000,
+  });
+  const progressQ = useQuery({
+    queryKey: ['admin-progress'],
+    queryFn: crmService.getSalesmanProgress,
+    refetchInterval: 60_000,
+  });
+  const recentQ = useQuery({
+    queryKey: ['admin-meetings'],
+    queryFn: () => crmService.getAllMeetings(50),
+  });
+  const addSalesman = useMutation({
+    mutationFn: crmService.addSalesman,
+    onSuccess: () => {
+      setShowAddModal(false);
+      setNewSalesmanName('');
+      setNewSalesmanPhone('');
+      setAddError('');
+      qc.invalidateQueries({ queryKey: ['admin-overview'] });
+      qc.invalidateQueries({ queryKey: ['admin-progress'] });
+    },
+    onError: (e) => setAddError(e.message),
+  });
 
   // Switch theme to red on mount/active
   React.useEffect(() => {
     setThemeVariant('red');
-  }, []);
+  }, [setThemeVariant]);
 
   // Determine responsive columns: 4 cols (wide > 960px), 2 cols (tablet 640-960px), 1 col (phone < 640px)
   const isWide = width >= 960;
@@ -37,13 +70,6 @@ export default function AdminWebBentoScreen() {
   const isPhone = width < 640;
 
   const gap = 16;
-  const contentWidth = Math.min(width - 32, 1200);
-
-  // Waveform bars
-  const waveformHeights = [
-    8, 16, 24, 12, 28, 18, 10, 22, 30, 14, 20, 26, 12, 18, 24, 10, 16, 28, 14, 20, 12, 22, 8, 18,
-    26, 10, 16, 20, 12, 8, 18, 24, 14, 10,
-  ];
 
   const handleNavPress = (tab: 'Overview' | 'Team' | 'Map' | 'Reports') => {
     setActiveNav(tab);
@@ -51,6 +77,35 @@ export default function AdminWebBentoScreen() {
     else if (tab === 'Map') router.push('/admin/map');
     else if (tab === 'Reports') router.push('/admin/reports');
   };
+
+  if (overviewQ.isLoading || progressQ.isLoading)
+    return <LoadingView message="Loading dashboard..." />;
+  const o = overviewQ.data;
+  const progress = progressQ.data;
+  if (!o || !progress) {
+    const err = overviewQ.error ?? progressQ.error;
+    return (
+      <ErrorView
+        message={err?.message ?? 'Could not load dashboard'}
+        onRetry={() => {
+          overviewQ.refetch();
+          progressQ.refetch();
+        }}
+      />
+    );
+  }
+  const targetPct = o.visitsTarget
+    ? Math.min(100, Math.round((o.visitsDone / o.visitsTarget) * 100))
+    : 0;
+  const maxOutcome = Math.max(
+    1,
+    o.outcomes.interested,
+    o.outcomes.closed,
+    o.outcomes.notInterested,
+  );
+  const barPct = (n: number) => `${Math.round((n / maxOutcome) * 100)}%` as const;
+  const onField = o.fieldStatus.inMeeting + o.fieldStatus.onRoad;
+  const latestVoice = recentQ.data?.find((m) => m.aiSummary);
 
   return (
     <ScrollView
@@ -66,9 +121,7 @@ export default function AdminWebBentoScreen() {
             <View style={[styles.logoBadge, { backgroundColor: theme.colors.adminRed }]}>
               <MapPin size={22} color="#FFFFFF" />
             </View>
-            <Text style={[styles.brandText, { color: theme.colors.text }]}>
-              {APP_NAME} Admin
-            </Text>
+            <Text style={[styles.brandText, { color: theme.colors.text }]}>{APP_NAME} Admin</Text>
           </View>
 
           {/* Navigation Pills */}
@@ -87,16 +140,10 @@ export default function AdminWebBentoScreen() {
                   accessibilityRole="tab"
                   accessibilityState={{ selected: isSelected }}
                   accessibilityLabel={item}
-                  style={[
-                    styles.navItem,
-                    isSelected && { backgroundColor: theme.colors.adminRed },
-                  ]}
+                  style={[styles.navItem, isSelected && { backgroundColor: theme.colors.adminRed }]}
                 >
                   <Text
-                    style={[
-                      styles.navText,
-                      { color: isSelected ? '#FFFFFF' : theme.colors.text },
-                    ]}
+                    style={[styles.navText, { color: isSelected ? '#FFFFFF' : theme.colors.text }]}
                   >
                     {item}
                   </Text>
@@ -110,10 +157,7 @@ export default function AdminWebBentoScreen() {
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Search"
-              style={[
-                styles.iconBtn,
-                { borderColor: theme.colors.border },
-              ]}
+              style={[styles.iconBtn, { borderColor: theme.colors.border }]}
             >
               <Search size={20} color={theme.colors.text} />
             </Pressable>
@@ -122,10 +166,7 @@ export default function AdminWebBentoScreen() {
               onPress={() => setShowAddModal(true)}
               accessibilityRole="button"
               accessibilityLabel="Add salesman"
-              style={[
-                styles.addSalesmanBtn,
-                { backgroundColor: theme.colors.adminRed },
-              ]}
+              style={[styles.addSalesmanBtn, { backgroundColor: theme.colors.adminRed }]}
             >
               <Text style={styles.addSalesmanText}>+ Add salesman</Text>
             </Pressable>
@@ -135,10 +176,10 @@ export default function AdminWebBentoScreen() {
         {/* Heading */}
         <View style={styles.titleBlock}>
           <Text style={[styles.pageTitle, { color: theme.colors.text }]}>
-            Welcome in, Manager
+            Welcome in, {user?.name.split(' ')[0] ?? 'Manager'}
           </Text>
           <Text style={[styles.pageSub, { color: theme.colors.muted }]}>
-            Tuesday, 10 Nov · 12 salesmen
+            {formatDay()} · {o.salesmenCount} salesmen
           </Text>
         </View>
 
@@ -157,10 +198,14 @@ export default function AdminWebBentoScreen() {
             ]}
           >
             <Text style={styles.heroLabel}>Visits today</Text>
-            <Text style={styles.heroNumber}>86</Text>
-            <Text style={styles.heroSub}>Target 120 · 72% done</Text>
+            <Text style={styles.heroNumber}>{o.visitsDone}</Text>
+            <Text style={styles.heroSub}>
+              {o.visitsTarget
+                ? `Target ${o.visitsTarget} · ${targetPct}% done`
+                : 'No target set for today'}
+            </Text>
             <View style={styles.heroBarTrack}>
-              <View style={[styles.heroBarFill, { width: '72%' }]} />
+              <View style={[styles.heroBarFill, { width: `${targetPct}%` }]} />
             </View>
           </View>
 
@@ -187,12 +232,12 @@ export default function AdminWebBentoScreen() {
                   },
                 ]}
               >
-                <Text style={[styles.tileLabel, { color: theme.colors.muted }]}>
-                  Deals closed
+                <Text style={[styles.tileLabel, { color: theme.colors.muted }]}>Deals closed</Text>
+                <Text style={[styles.metricBig, { color: theme.colors.text }]}>
+                  {o.dealsClosed}
                 </Text>
-                <Text style={[styles.metricBig, { color: theme.colors.text }]}>14</Text>
                 <Text style={[styles.metricHighlightRed, { color: theme.colors.adminRedText }]}>
-                  ₹3.8L total value
+                  {formatINRShort(o.dealValueTotal)} total value
                 </Text>
               </View>
 
@@ -211,9 +256,11 @@ export default function AdminWebBentoScreen() {
                 <Text style={[styles.tileLabel, { color: theme.colors.muted }]}>
                   Follow-ups due today
                 </Text>
-                <Text style={[styles.metricBig, { color: theme.colors.text }]}>9</Text>
+                <Text style={[styles.metricBig, { color: theme.colors.text }]}>
+                  {o.followupsDue}
+                </Text>
                 <Text style={[styles.metricHighlightRed, { color: theme.colors.adminRedText }]}>
-                  3 overdue
+                  {o.followupsOverdue} overdue
                 </Text>
               </View>
             </View>
@@ -231,27 +278,62 @@ export default function AdminWebBentoScreen() {
             >
               <Text style={[styles.tileTitle, { color: theme.colors.text }]}>Field status</Text>
               <View style={styles.fieldStatusBar}>
-                <View style={[styles.fieldStatusSeg, { flex: 5, backgroundColor: theme.colors.adminRed }]} />
-                <View style={[styles.fieldStatusSeg, { flex: 4, backgroundColor: theme.colors.text }]} />
-                <View style={[styles.fieldStatusSeg, { flex: 3, backgroundColor: theme.colors.neutral }]} />
+                {o.fieldStatus.inMeeting ? (
+                  <View
+                    style={[
+                      styles.fieldStatusSeg,
+                      { flex: o.fieldStatus.inMeeting, backgroundColor: theme.colors.adminRed },
+                    ]}
+                  />
+                ) : null}
+                {o.fieldStatus.onRoad ? (
+                  <View
+                    style={[
+                      styles.fieldStatusSeg,
+                      { flex: o.fieldStatus.onRoad, backgroundColor: theme.colors.text },
+                    ]}
+                  />
+                ) : null}
+                {o.fieldStatus.notStarted ? (
+                  <View
+                    style={[
+                      styles.fieldStatusSeg,
+                      { flex: o.fieldStatus.notStarted, backgroundColor: theme.colors.neutral },
+                    ]}
+                  />
+                ) : null}
               </View>
               <View style={styles.fieldStatusRow}>
                 <View style={styles.statusCol}>
-                  <View style={[styles.statusMiniDot, { backgroundColor: theme.colors.adminRed }]} />
-                  <Text style={[styles.statusMiniText, { color: theme.colors.text }]}>In meeting</Text>
-                  <Text style={[styles.statusMiniCount, { color: theme.colors.text }]}>5</Text>
+                  <View
+                    style={[styles.statusMiniDot, { backgroundColor: theme.colors.adminRed }]}
+                  />
+                  <Text style={[styles.statusMiniText, { color: theme.colors.text }]}>
+                    In meeting
+                  </Text>
+                  <Text style={[styles.statusMiniCount, { color: theme.colors.text }]}>
+                    {o.fieldStatus.inMeeting}
+                  </Text>
                 </View>
 
                 <View style={styles.statusCol}>
                   <View style={[styles.statusMiniDot, { backgroundColor: theme.colors.text }]} />
-                  <Text style={[styles.statusMiniText, { color: theme.colors.text }]}>On the road</Text>
-                  <Text style={[styles.statusMiniCount, { color: theme.colors.text }]}>4</Text>
+                  <Text style={[styles.statusMiniText, { color: theme.colors.text }]}>
+                    On the road
+                  </Text>
+                  <Text style={[styles.statusMiniCount, { color: theme.colors.text }]}>
+                    {o.fieldStatus.onRoad}
+                  </Text>
                 </View>
 
                 <View style={styles.statusCol}>
                   <View style={[styles.statusMiniDot, { backgroundColor: theme.colors.neutral }]} />
-                  <Text style={[styles.statusMiniText, { color: theme.colors.text }]}>Not started</Text>
-                  <Text style={[styles.statusMiniCount, { color: theme.colors.text }]}>3</Text>
+                  <Text style={[styles.statusMiniText, { color: theme.colors.text }]}>
+                    Not started
+                  </Text>
+                  <Text style={[styles.statusMiniCount, { color: theme.colors.text }]}>
+                    {o.fieldStatus.notStarted}
+                  </Text>
                 </View>
               </View>
             </View>
@@ -292,25 +374,33 @@ export default function AdminWebBentoScreen() {
                   { cx: 420, cy: 120 },
                   { cx: 230, cy: 300 },
                   { cx: 480, cy: 260 },
-                ].map((pin, i) => (
-                  <React.Fragment key={i}>
-                    <Circle cx={pin.cx} cy={pin.cy} r={22} fill={theme.colors.adminRed} fillOpacity={0.2} />
-                    <Circle
-                      cx={pin.cx}
-                      cy={pin.cy}
-                      r={8}
-                      fill={theme.colors.adminRed}
-                      stroke="#FFFFFF"
-                      strokeWidth={2.5}
-                    />
-                  </React.Fragment>
-                ))}
+                ]
+                  .slice(0, onField)
+                  .map((pin, i) => (
+                    <React.Fragment key={i}>
+                      <Circle
+                        cx={pin.cx}
+                        cy={pin.cy}
+                        r={22}
+                        fill={theme.colors.adminRed}
+                        fillOpacity={0.2}
+                      />
+                      <Circle
+                        cx={pin.cx}
+                        cy={pin.cy}
+                        r={8}
+                        fill={theme.colors.adminRed}
+                        stroke={theme.colors.onDanger}
+                        strokeWidth={2.5}
+                      />
+                    </React.Fragment>
+                  ))}
               </Svg>
             </View>
 
             <View style={[styles.liveLocationsBadge, { backgroundColor: theme.colors.bg }]}>
               <Text style={[styles.badgeText, { color: theme.colors.text }]}>
-                Live locations
+                Map placeholder · {onField} on the field
               </Text>
             </View>
           </View>
@@ -345,11 +435,25 @@ export default function AdminWebBentoScreen() {
                   {/* Interested */}
                   <View style={styles.outcomeBarItem}>
                     <View style={styles.outcomeBarHeader}>
-                      <Text style={[styles.outcomeName, { color: theme.colors.text }]}>Interested</Text>
-                      <Text style={[styles.outcomeCount, { color: theme.colors.muted }]}>41</Text>
+                      <Text style={[styles.outcomeName, { color: theme.colors.text }]}>
+                        Interested
+                      </Text>
+                      <Text style={[styles.outcomeCount, { color: theme.colors.muted }]}>
+                        {o.outcomes.interested}
+                      </Text>
                     </View>
-                    <View style={[styles.outcomeBarTrack, { backgroundColor: theme.colors.border }]}>
-                      <View style={[styles.outcomeBarFill, { width: '100%', backgroundColor: theme.colors.text }]} />
+                    <View
+                      style={[styles.outcomeBarTrack, { backgroundColor: theme.colors.border }]}
+                    >
+                      <View
+                        style={[
+                          styles.outcomeBarFill,
+                          {
+                            width: barPct(o.outcomes.interested),
+                            backgroundColor: theme.colors.text,
+                          },
+                        ]}
+                      />
                     </View>
                   </View>
 
@@ -357,21 +461,47 @@ export default function AdminWebBentoScreen() {
                   <View style={styles.outcomeBarItem}>
                     <View style={styles.outcomeBarHeader}>
                       <Text style={[styles.outcomeName, { color: theme.colors.text }]}>Closed</Text>
-                      <Text style={[styles.outcomeCount, { color: theme.colors.muted }]}>14</Text>
+                      <Text style={[styles.outcomeCount, { color: theme.colors.muted }]}>
+                        {o.outcomes.closed}
+                      </Text>
                     </View>
-                    <View style={[styles.outcomeBarTrack, { backgroundColor: theme.colors.border }]}>
-                      <View style={[styles.outcomeBarFill, { width: '34%', backgroundColor: theme.colors.adminRed }]} />
+                    <View
+                      style={[styles.outcomeBarTrack, { backgroundColor: theme.colors.border }]}
+                    >
+                      <View
+                        style={[
+                          styles.outcomeBarFill,
+                          {
+                            width: barPct(o.outcomes.closed),
+                            backgroundColor: theme.colors.adminRed,
+                          },
+                        ]}
+                      />
                     </View>
                   </View>
 
                   {/* Not interested */}
                   <View style={styles.outcomeBarItem}>
                     <View style={styles.outcomeBarHeader}>
-                      <Text style={[styles.outcomeName, { color: theme.colors.text }]}>Not interested</Text>
-                      <Text style={[styles.outcomeCount, { color: theme.colors.muted }]}>31</Text>
+                      <Text style={[styles.outcomeName, { color: theme.colors.text }]}>
+                        Not interested
+                      </Text>
+                      <Text style={[styles.outcomeCount, { color: theme.colors.muted }]}>
+                        {o.outcomes.notInterested}
+                      </Text>
                     </View>
-                    <View style={[styles.outcomeBarTrack, { backgroundColor: theme.colors.border }]}>
-                      <View style={[styles.outcomeBarFill, { width: '76%', backgroundColor: theme.colors.neutral }]} />
+                    <View
+                      style={[styles.outcomeBarTrack, { backgroundColor: theme.colors.border }]}
+                    >
+                      <View
+                        style={[
+                          styles.outcomeBarFill,
+                          {
+                            width: barPct(o.outcomes.notInterested),
+                            backgroundColor: theme.colors.neutral,
+                          },
+                        ]}
+                      />
                     </View>
                   </View>
                 </View>
@@ -392,9 +522,11 @@ export default function AdminWebBentoScreen() {
                 <Text style={[styles.tileLabel, { color: theme.colors.muted }]}>
                   WhatsApp reminders
                 </Text>
-                <Text style={[styles.metricBig, { color: theme.colors.text }]}>6</Text>
+                <Text style={[styles.metricBig, { color: theme.colors.text }]}>
+                  {o.remindersSent}
+                </Text>
                 <Text style={[styles.tileLabel, { color: theme.colors.muted, marginTop: 8 }]}>
-                  sent to salesmen today
+                  sent today
                 </Text>
               </View>
             </View>
@@ -414,7 +546,7 @@ export default function AdminWebBentoScreen() {
                 Today&apos;s progress
               </Text>
               <View style={styles.progressRows}>
-                {salesmanProgress.map((s) => (
+                {progress.map((s) => (
                   <View key={s.id} style={styles.salesmanRow}>
                     <View style={[styles.salesmanAvatar, { backgroundColor: theme.colors.text }]}>
                       <Text style={[styles.salesmanInitials, { color: theme.colors.bg }]}>
@@ -426,11 +558,11 @@ export default function AdminWebBentoScreen() {
                         {s.name}
                       </Text>
                       <Text style={[styles.salesmanSubText, { color: theme.colors.muted }]}>
-                        {s.visits} visits · {s.lastUpdated}
+                        {s.status} · {s.visits} visits · {timeAgo(s.lastActivityAt)}
                       </Text>
                     </View>
                     <Text style={[styles.salesmanValue, { color: theme.colors.adminRedText }]}>
-                      {s.dealValue > 0 ? `+₹${s.dealValue.toLocaleString('en-IN')}` : '₹0'}
+                      {s.dealValue > 0 ? `+${formatINR(s.dealValue)}` : formatINR(0)}
                     </Text>
                   </View>
                 ))}
@@ -450,57 +582,25 @@ export default function AdminWebBentoScreen() {
               },
             ]}
           >
-            <Text style={[styles.tileTitle, { color: theme.colors.text }]}>
-              Latest voice note
-            </Text>
-            <Text style={[styles.tileLabel, { color: theme.colors.muted, marginTop: 2 }]}>
-              Salesman A · Client A
-            </Text>
-
-            <View style={styles.voicePlayerRow}>
-              <Pressable
-                onPress={() => setIsPlayingVoice(!isPlayingVoice)}
-                accessibilityRole="button"
-                accessibilityLabel={isPlayingVoice ? 'Pause voice note' : 'Play voice note'}
-                style={[
-                  styles.playVoiceBtn,
-                  { backgroundColor: theme.colors.text },
-                ]}
-              >
-                {isPlayingVoice ? (
-                  <Pause size={18} color={theme.colors.bg} />
-                ) : (
-                  <Play size={18} color={theme.colors.bg} style={{ marginLeft: 2 }} />
-                )}
-              </Pressable>
-
-              <View style={styles.waveformSvgWrapper}>
-                <Svg width="100%" height={36} viewBox="0 0 272 36">
-                  {waveformHeights.map((h, i) => {
-                    const x = i * 8;
-                    const y = (36 - h) / 2;
-                    const isPast = isPlayingVoice ? true : i < 14;
-                    return (
-                      <Rect
-                        key={i}
-                        x={x}
-                        y={y}
-                        width={4}
-                        height={h}
-                        rx={2}
-                        fill={isPast ? theme.colors.adminRed : theme.colors.neutral}
-                      />
-                    );
-                  })}
-                </Svg>
-              </View>
-
-              <Text style={[styles.durationText, { color: theme.colors.muted }]}>00:24</Text>
-            </View>
-
-            <Text style={[styles.aiSummaryText, { color: theme.colors.text }]}>
-              AI summary: Client ko rate thoda zyada laga. Sample dekhna chahta hai. 7 din baad dobara milne ko bola.
-            </Text>
+            <Text style={[styles.tileTitle, { color: theme.colors.text }]}>Latest voice note</Text>
+            {latestVoice ? (
+              <>
+                <Text style={[styles.tileLabel, { color: theme.colors.muted, marginTop: 2 }]}>
+                  {latestVoice.salesmanName} · {latestVoice.clientName}
+                  {latestVoice.voiceNoteDuration ? ` · ${latestVoice.voiceNoteDuration}s` : ''}
+                </Text>
+                <Text style={[styles.aiSummaryText, { color: theme.colors.text }]}>
+                  AI summary: {latestVoice.aiSummary}
+                </Text>
+                <Text style={[styles.tileLabel, { color: theme.colors.muted }]}>
+                  Audio playback needs file storage (coming soon).
+                </Text>
+              </>
+            ) : (
+              <Text style={[styles.tileLabel, { color: theme.colors.muted, marginTop: 2 }]}>
+                No voice notes yet.
+              </Text>
+            )}
           </View>
         </View>
       </View>
@@ -536,7 +636,7 @@ export default function AdminWebBentoScreen() {
               label="Full name"
               value={newSalesmanName}
               onChangeText={setNewSalesmanName}
-              placeholder="e.g. Salesman E"
+              placeholder="e.g. Rahul Sharma"
             />
 
             <Field
@@ -544,12 +644,21 @@ export default function AdminWebBentoScreen() {
               value={newSalesmanPhone}
               onChangeText={setNewSalesmanPhone}
               keyboardType="phone-pad"
-              placeholder="+91 98000 00000"
+              placeholder="98765 43210"
             />
 
+            {addError ? (
+              <Text
+                accessibilityRole="alert"
+                style={{ color: theme.colors.adminRedText, fontFamily: fonts.regular }}
+              >
+                {addError}
+              </Text>
+            ) : null}
             <Button
               title="Add Salesman"
-              onPress={() => setShowAddModal(false)}
+              loading={addSalesman.isPending}
+              onPress={() => addSalesman.mutate({ name: newSalesmanName, phone: newSalesmanPhone })}
               variant="danger"
               size="normal"
             />
@@ -883,4 +992,3 @@ const styles = StyleSheet.create({
     fontSize: 18,
   },
 });
-

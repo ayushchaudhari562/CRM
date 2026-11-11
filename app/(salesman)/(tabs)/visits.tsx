@@ -1,42 +1,30 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, FlatList } from 'react-native';
+import { View, Text, StyleSheet, FlatList, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { Clock } from 'lucide-react-native';
 import { useTheme, fonts } from '../../../src/theme';
 import { Chip, LoadingView, EmptyView, ErrorView } from '../../../src/components';
 import { crmService } from '../../../src/services';
-import { useAppStore } from '../../../src/store';
-import type { Meeting } from '../../../src/types';
+import { formatDateTime, formatINR } from '../../../src/utils/format';
+
+const RANGE = { Today: 'today', Week: 'week', All: 'all' } as const;
 
 export default function VisitsScreen() {
   const { theme } = useTheme();
   const router = useRouter();
-  const { user } = useAppStore();
-  const [filter, setFilter] = useState<'Today' | 'Week' | 'All'>('Today');
+  const [filter, setFilter] = useState<keyof typeof RANGE>('Today');
 
+  // The server filters by date range and by the logged-in salesman.
   const {
-    data: meetings,
+    data: filtered = [],
     isLoading,
     error,
     refetch,
-  } = useQuery<Meeting[]>({
-    queryKey: ['meetings', user.id],
-    queryFn: () => crmService.getMeetings(user.id),
+  } = useQuery({
+    queryKey: ['meetings', RANGE[filter]],
+    queryFn: () => crmService.getMeetings(RANGE[filter]),
   });
-
-  const getFilteredMeetings = () => {
-    if (!meetings) return [];
-    if (filter === 'Today') {
-      return meetings.slice(0, 3);
-    }
-    if (filter === 'Week') {
-      return meetings;
-    }
-    return meetings;
-  };
-
-  const filtered = getFilteredMeetings();
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.bg }]}>
@@ -50,28 +38,16 @@ export default function VisitsScreen() {
 
       {/* Filter Chips */}
       <View style={styles.filterRow}>
-        <Chip
-          label="Today"
-          selected={filter === 'Today'}
-          onPress={() => setFilter('Today')}
-        />
-        <Chip
-          label="This Week"
-          selected={filter === 'Week'}
-          onPress={() => setFilter('Week')}
-        />
-        <Chip
-          label="All Visits"
-          selected={filter === 'All'}
-          onPress={() => setFilter('All')}
-        />
+        <Chip label="Today" selected={filter === 'Today'} onPress={() => setFilter('Today')} />
+        <Chip label="This Week" selected={filter === 'Week'} onPress={() => setFilter('Week')} />
+        <Chip label="All Visits" selected={filter === 'All'} onPress={() => setFilter('All')} />
       </View>
 
       {/* Content */}
       {isLoading ? (
         <LoadingView message="Loading your visit logs..." />
       ) : error ? (
-        <ErrorView message="Failed to load visits" onRetry={() => refetch()} />
+        <ErrorView message={error.message} onRetry={() => refetch()} />
       ) : filtered.length === 0 ? (
         <EmptyView
           title="No visits logged"
@@ -90,12 +66,17 @@ export default function VisitsScreen() {
             const isInterested = item.outcome === 'Interested';
 
             return (
-              // Not tappable yet: the salesman visit detail screen comes in step 6.
-              // (Before, this opened the ADMIN report, which the role guard now blocks.)
-              <View
-                style={[
+              <Pressable
+                onPress={() => router.push(`/(salesman)/client/${item.clientId}`)}
+                accessibilityRole="button"
+                accessibilityLabel={`${item.clientName}, ${item.outcome}. Open client details`}
+                style={({ pressed }) => [
                   styles.visitCard,
-                  { backgroundColor: theme.colors.surface, borderColor: theme.colors.border },
+                  {
+                    backgroundColor: theme.colors.surface,
+                    borderColor: theme.colors.border,
+                    opacity: pressed ? 0.85 : 1,
+                  },
                 ]}
               >
                 <View style={styles.cardHeader}>
@@ -113,10 +94,10 @@ export default function VisitsScreen() {
                       styles.outcomeBadge,
                       {
                         backgroundColor: isClosed
-                          ? '#1F3A27'
+                          ? theme.colors.accentSoftBg
                           : isInterested
-                          ? theme.colors.surface2
-                          : '#2A2022',
+                            ? theme.colors.surface2
+                            : theme.colors.surface2,
                       },
                     ]}
                   >
@@ -127,8 +108,8 @@ export default function VisitsScreen() {
                           color: isClosed
                             ? theme.colors.accent
                             : isInterested
-                            ? theme.colors.text
-                            : theme.colors.muted,
+                              ? theme.colors.text
+                              : theme.colors.muted,
                         },
                       ]}
                     >
@@ -141,21 +122,17 @@ export default function VisitsScreen() {
                   <View style={styles.footerItem}>
                     <Clock size={13} color={theme.colors.muted} />
                     <Text style={[styles.footerText, { color: theme.colors.muted }]}>
-                      {new Date(item.createdAt).toLocaleTimeString([], {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
+                      {formatDateTime(item.checkInAt)}
                     </Text>
                   </View>
 
                   {item.dealValue > 0 ? (
                     <Text style={[styles.dealValueText, { color: theme.colors.accent }]}>
-                      ₹{item.dealValue.toLocaleString('en-IN')}
+                      {formatINR(item.dealValue)}
                     </Text>
                   ) : null}
-
                 </View>
-              </View>
+              </Pressable>
             );
           }}
         />
@@ -247,4 +224,3 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
 });
-

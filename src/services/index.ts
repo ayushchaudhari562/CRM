@@ -1,110 +1,94 @@
+// All app data comes from our API (backend/). No mock data.
 import type {
   AdminOverview,
+  ApiErrorBody,
+  AppUser,
   Client,
+  ClientDetail,
+  CreateMeetingInput,
+  CreateSalesmanInput,
   Meeting,
-  Reminder,
-  Salesman,
+  Product,
+  SalesmanHome,
   SalesmanProgress,
-  ServiceError,
-  VisitStats,
 } from '../types';
-import { clients, meetings, reminders, adminSalesmen, salesmanProgress, visitStats, adminOverview } from '../mocks/data';
+import { getToken } from './session';
 
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const API_URL = process.env.EXPO_PUBLIC_API_URL;
+if (!API_URL) throw new Error('Missing EXPO_PUBLIC_API_URL in .env');
 
-function serviceError(message: string, opts?: { code?: string; status?: number }): ServiceError {
-  const err = new Error(message) as ServiceError;
-  err.name = 'ServiceError';
-  err.code = opts?.code;
-  err.status = opts?.status;
-  return err;
+/** Error with the API's machine code (e.g. "not_registered") and a message safe to show. */
+export class ApiError extends Error {
+  constructor(
+    public status: number,
+    public code: string,
+    message: string,
+  ) {
+    super(message);
+  }
 }
 
-export class CrmService {
-  async getStats(): Promise<VisitStats> {
-    await delay(300);
-    return { ...visitStats };
+async function request<T>(
+  path: string,
+  init: { method?: string; body?: unknown } = {},
+): Promise<T> {
+  const token = await getToken();
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}${path}`, {
+      method: init.method ?? 'GET',
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(init.body ? { 'Content-Type': 'application/json' } : {}),
+      },
+      body: init.body ? JSON.stringify(init.body) : undefined,
+    });
+  } catch {
+    throw new ApiError(0, 'network', 'No internet connection or server is down. Please try again.');
   }
-
-  async getAdminOverview(): Promise<AdminOverview> {
-    await delay(300);
-    return { ...adminOverview };
+  if (!res.ok) {
+    const body = (await res.json().catch(() => null)) as ApiErrorBody | null;
+    throw new ApiError(
+      res.status,
+      body?.error ?? 'server_error',
+      body?.message ?? 'Something went wrong.',
+    );
   }
-
-  // --- Salesman scope: salesmanId is required so a salesman only ever gets their own data.
-  // NOTE: this is UX only. The real backend must enforce it from the auth token.
-
-  async getClients(salesmanId: string): Promise<Client[]> {
-    await delay(300);
-    return clients.filter((c) => c.salesmanId === salesmanId);
-  }
-
-  async getClient(salesmanId: string, id: string): Promise<Client | null> {
-    await delay(300);
-    return clients.find((c) => c.id === id && c.salesmanId === salesmanId) ?? null;
-  }
-
-  async searchClients(salesmanId: string, query: string): Promise<Client[]> {
-    await delay(300);
-    const q = query.trim().toLowerCase();
-    return clients.filter((c) => c.salesmanId === salesmanId && c.name.toLowerCase().includes(q));
-  }
-
-  async getMeetings(salesmanId: string): Promise<Meeting[]> {
-    await delay(300);
-    return meetings.filter((m) => m.salesmanId === salesmanId);
-  }
-
-  async getReminders(salesmanId: string): Promise<Reminder[]> {
-    await delay(300);
-    return reminders.filter((r) => r.salesmanId === salesmanId);
-  }
-
-  async createMeeting(
-    salesmanId: string,
-    input: Omit<Meeting, 'id' | 'salesmanId' | 'createdAt' | 'updatedAt'>,
-  ): Promise<Meeting> {
-    await delay(500);
-    const now = new Date().toISOString();
-    const meeting: Meeting = { ...input, id: `m-${Date.now()}`, salesmanId, createdAt: now, updatedAt: now };
-    meetings.push(meeting);
-    return meeting;
-  }
-
-  // --- Admin scope: sees everything.
-
-  async getAllMeetings(): Promise<Meeting[]> {
-    await delay(300);
-    return [...meetings];
-  }
-
-  async getMeeting(id: string): Promise<Meeting | null> {
-    await delay(300);
-    return meetings.find((m) => m.id === id) ?? null;
-  }
-
-  async updateMeeting(id: string, patch: Partial<Meeting>): Promise<Meeting | null> {
-    await delay(400);
-    const idx = meetings.findIndex((m) => m.id === id);
-    if (idx === -1) return null;
-    meetings[idx] = { ...meetings[idx], ...patch, updatedAt: new Date().toISOString() };
-    return meetings[idx];
-  }
-
-  async getSalesmanProgress(): Promise<SalesmanProgress[]> {
-    await delay(300);
-    return [...salesmanProgress];
-  }
-
-  async getSalesmen(): Promise<Salesman[]> {
-    await delay(300);
-    return [...adminSalesmen];
-  }
-
-  // TODO: wire up to real TypeScript backend
-  // async uploadAttachment(uri: string): Promise<Attachment> { ... }
-  // async transcribeVoiceNote(url: string): Promise<string> { ... }
-  // async sendWhatsAppReminder(reminderId: string): Promise<void> { ... }
+  return (await res.json()) as T;
 }
 
-export const crmService = new CrmService();
+export const crmService = {
+  // Any user
+  getMe: () => request<AppUser>('/me'),
+  // TEMPORARY: fixed-OTP login checked by our API (see backend/src/devLogin.ts)
+  devLogin: (phone: string, otp: string) =>
+    request<{ token: string; user: AppUser }>('/auth/dev-login', {
+      method: 'POST',
+      body: { phone, otp },
+    }),
+
+  // Salesman (server filters everything by the logged-in salesman)
+  getHome: () => request<SalesmanHome>('/me/home'),
+  togglePunch: () =>
+    request<{ punchedInAt: string | null }>('/me/attendance/toggle', { method: 'POST' }),
+  getMeetings: (range: 'today' | 'week' | 'all' = 'all') =>
+    request<Meeting[]>(`/me/meetings?range=${range}`),
+  searchClients: (q: string) => request<Client[]>(`/me/clients?q=${encodeURIComponent(q)}`),
+  getClient: (id: string) => request<ClientDetail>(`/me/clients/${encodeURIComponent(id)}`),
+  getProducts: () => request<Product[]>('/products'),
+  createMeeting: (input: CreateMeetingInput) =>
+    request<Meeting>('/me/meetings', { method: 'POST', body: input }),
+
+  // Admin
+  getAdminOverview: () => request<AdminOverview>('/admin/overview'),
+  getSalesmanProgress: () => request<SalesmanProgress[]>('/admin/progress'),
+  getAllMeetings: (limit = 50, salesmanId?: string) =>
+    request<Meeting[]>(
+      `/admin/meetings?limit=${limit}${salesmanId ? `&salesmanId=${encodeURIComponent(salesmanId)}` : ''}`,
+    ),
+  getMeeting: (id: string) => request<Meeting>(`/admin/meetings/${encodeURIComponent(id)}`),
+  addSalesman: (input: CreateSalesmanInput) =>
+    request<AppUser>('/admin/salesmen', { method: 'POST', body: input }),
+
+  // TODO (backend later): uploadAttachment, transcribeVoiceNote, sendWhatsAppReminder
+};

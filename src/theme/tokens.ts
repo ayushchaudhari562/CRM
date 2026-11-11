@@ -24,6 +24,7 @@ const extraColors = {
   tabBar: '#111213', // bottom tab bar background (02, 06, 07)
   timelineDone: '#2E5E3A', // "done" node fill in the visit timeline (08)
   onDanger: '#FFFFFF', // text on adminRed buttons
+  statusIdle: '#8C7B65', // "Not started" in field status (07, 09)
   // Offline banner. Not in the design files: picked to read as a warning on dark bg.
   warning: '#E5A855',
   warningBg: '#2A2015',

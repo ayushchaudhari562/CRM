@@ -6,6 +6,7 @@
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 import {
+  Prisma,
   PrismaClient,
   Role,
   MeetingOutcome,
@@ -19,7 +20,11 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 // Session-mode URL (port 5432): safest for a one-off script.
-const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DIRECT_URL }) });
+const prisma = new PrismaClient({
+  adapter: new PrismaPg({ connectionString: process.env.DIRECT_URL }),
+  // Slow networks (hotspot -> Sydney): allow time to open and finish the transaction.
+  transactionOptions: { maxWait: 30_000, timeout: 120_000 },
+});
 
 // ---------- small helpers ----------
 
@@ -101,215 +106,237 @@ const AI_SUMMARIES = [
 
 // ---------- seed ----------
 
-async function main() {
-  console.log('Clearing old data...');
-  // Children first (foreign keys).
-  await prisma.attachment.deleteMany();
-  await prisma.followUp.deleteMany();
-  await prisma.meeting.deleteMany();
-  await prisma.client.deleteMany();
-  await prisma.product.deleteMany();
-  await prisma.attendance.deleteMany();
-  await prisma.locationPing.deleteMany();
-  await prisma.target.deleteMany();
-  await prisma.user.deleteMany();
+const id = (prefix: string, n: number) => `${prefix}_${String(n).padStart(3, '0')}`;
 
-  // Users: 12 salesmen + 2 admins
-  const salesmen = [];
-  for (let i = 0; i < SALESMEN.length; i++) {
-    salesmen.push(
-      await prisma.user.create({
-        data: {
-          name: SALESMEN[i],
-          phone: fakePhone(100 + i),
-          employeeId: `EMP${String(1001 + i)}`,
-          role: Role.SALESMAN,
-          isActive: i !== SALESMEN.length - 1, // last one is deactivated (to test that case)
-        },
-      }),
-    );
-  }
-  for (let i = 0; i < ADMINS.length; i++) {
-    await prisma.user.create({
-      data: { name: ADMINS[i], phone: fakePhone(900 + i), employeeId: `ADM${String(1 + i).padStart(3, '0')}`, role: Role.ADMIN },
-    });
-  }
+async function main() {
+  // 1) Build every row in memory first (no DB calls).
+  const users: Prisma.UserCreateManyInput[] = SALESMEN.map((name, i) => ({
+    id: id('usr', i + 1),
+    name,
+    phone: fakePhone(100 + i), // +919000000100 ...
+    employeeId: `EMP${1001 + i}`,
+    role: Role.SALESMAN,
+    isActive: i !== SALESMEN.length - 1, // last one deactivated (to test that case)
+  }));
+  // Test admins. +919000000900 is the admin to use with a Supabase test OTP.
+  ADMINS.forEach((name, i) =>
+    users.push({
+      id: id('adm', i + 1),
+      name,
+      phone: fakePhone(900 + i),
+      employeeId: `ADM${String(i + 1).padStart(3, '0')}`,
+      role: Role.ADMIN,
+    }),
+  );
+  const salesmen = users.filter((u) => u.role === Role.SALESMAN);
   const activeSalesmen = salesmen.filter((s) => s.isActive);
 
-  // Products: 10 (one inactive)
-  const products = [];
-  for (let i = 0; i < PRODUCTS.length; i++) {
-    products.push(await prisma.product.create({ data: { name: PRODUCTS[i], isActive: i !== PRODUCTS.length - 1 } }));
-  }
+  const products: Prisma.ProductCreateManyInput[] = PRODUCTS.map((name, i) => ({
+    id: id('prd', i + 1),
+    name,
+    isActive: i !== PRODUCTS.length - 1,
+  }));
   const activeProducts = products.filter((p) => p.isActive);
 
-  // Clients: 3 per salesman = 36
-  const clients = [];
-  let clientNo = 0;
-  for (const [i, s] of salesmen.entries()) {
+  type ClientRow = Prisma.ClientCreateManyInput & { id: string; latitude: number; longitude: number };
+  const clients: ClientRow[] = [];
+  salesmen.forEach((s, i) => {
     const area = AREAS[i % AREAS.length];
     for (let k = 0; k < 3; k++) {
-      clientNo++;
-      clients.push(
-        await prisma.client.create({
-          data: {
-            salesmanId: s.id,
-            name: `${pick(SHOP_WORDS)} ${pick(SHOP_SUFFIX)}`,
-            businessType: pick(BUSINESS_TYPES),
-            contactNumber: k === 2 && i % 4 === 0 ? null : fakePhone(1000 + clientNo), // a few without a number
-            address: `Shop ${int(1, 99)}, ${area.name}`,
-            latitude: nearby(area.lat),
-            longitude: nearby(area.lng),
-          },
-        }),
-      );
+      const n = clients.length + 1;
+      clients.push({
+        id: id('cli', n),
+        salesmanId: s.id!,
+        name: `${pick(SHOP_WORDS)} ${pick(SHOP_SUFFIX)}`,
+        businessType: pick(BUSINESS_TYPES),
+        contactNumber: k === 2 && i % 4 === 0 ? null : fakePhone(1000 + n), // a few without a number
+        address: `Shop ${int(1, 99)}, ${area.name}`,
+        latitude: nearby(area.lat),
+        longitude: nearby(area.lng),
+      });
     }
-  }
+  });
 
-  // Meetings: last 7 days, 0-2 per active salesman per day
-  const meetings = [];
-  let reqNo = 0;
+  type MeetingRow = Prisma.MeetingCreateManyInput & { id: string; nextVisitAt: Date | null };
+  const meetings: MeetingRow[] = [];
+  const meetingProducts: { meetingId: string; productId: string }[] = [];
   for (let day = -6; day <= 0; day++) {
     for (const s of activeSalesmen) {
       const visits = day === 0 ? int(0, 2) : int(1, 2);
       const myClients = clients.filter((c) => c.salesmanId === s.id);
       for (let v = 0; v < visits; v++) {
+        const n = meetings.length + 1;
         const client = pick(myClients);
-        const outcome = pick([MeetingOutcome.INTERESTED, MeetingOutcome.INTERESTED, MeetingOutcome.CLOSED, MeetingOutcome.NOT_INTERESTED]);
+        const outcome = pick([
+          MeetingOutcome.INTERESTED,
+          MeetingOutcome.INTERESTED,
+          MeetingOutcome.CLOSED,
+          MeetingOutcome.NOT_INTERESTED,
+        ]);
         const checkInAt = istDate(day, 10 + v * 3 + int(0, 1), int(0, 59));
         const gpsDenied = rand() < 0.1; // ~10% visits where GPS permission was denied
         const hasVoice = rand() < 0.5;
         const wantsNext = outcome === MeetingOutcome.INTERESTED;
-        const chosen = [...activeProducts].sort(() => rand() - 0.5).slice(0, int(1, 3));
-        reqNo++;
-        meetings.push(
-          await prisma.meeting.create({
-            data: {
-              clientRequestId: `seed-req-${String(reqNo).padStart(4, '0')}`,
-              salesmanId: s.id,
-              clientId: client.id,
-              checkInAt,
-              checkInLat: gpsDenied ? null : nearby(client.latitude ?? 18.52, 0.1),
-              checkInLng: gpsDenied ? null : nearby(client.longitude ?? 73.85, 0.1),
-              checkInAccuracy: gpsDenied ? null : int(5, 40),
-              selfieUrl: `selfies/${s.id}/${reqNo}.jpg`,
-              checkOutAt: day === 0 && v === visits - 1 ? null : new Date(checkInAt.getTime() + int(15, 50) * 60_000), // today's last visit still open
-              outcome,
-              dealValue: outcome === MeetingOutcome.CLOSED ? int(5, 80) * 1000 : outcome === MeetingOutcome.INTERESTED ? int(0, 40) * 1000 : 0,
-              note: hasVoice && rand() < 0.5 ? null : pick(NOTES[outcome]),
-              voiceNoteUrl: hasVoice ? `voice/${s.id}/${reqNo}.m4a` : null,
-              voiceNoteSeconds: hasVoice ? int(10, 90) : null,
-              aiSummary: hasVoice ? pick(AI_SUMMARIES) : null,
-              nextVisitAt: wantsNext ? istDate(day + int(2, 9), int(10, 17)) : null,
-              whatsappReminder: wantsNext && rand() < 0.7,
-              products: { connect: chosen.map((p) => ({ id: p.id })) },
-            },
-          }),
-        );
+        const isOpen = day === 0 && v === visits - 1; // today's last visit not checked out yet
+        meetings.push({
+          id: id('mtg', n),
+          clientRequestId: `seed-req-${String(n).padStart(4, '0')}`,
+          salesmanId: s.id!,
+          clientId: client.id,
+          checkInAt,
+          checkInLat: gpsDenied ? null : nearby(client.latitude, 0.1),
+          checkInLng: gpsDenied ? null : nearby(client.longitude, 0.1),
+          checkInAccuracy: gpsDenied ? null : int(5, 40),
+          selfieUrl: `selfies/${s.id}/${n}.jpg`,
+          checkOutAt: isOpen ? null : new Date(checkInAt.getTime() + int(15, 50) * 60_000),
+          outcome,
+          dealValue:
+            outcome === MeetingOutcome.CLOSED
+              ? int(5, 80) * 1000
+              : outcome === MeetingOutcome.INTERESTED
+                ? int(0, 40) * 1000
+                : 0,
+          note: hasVoice && rand() < 0.5 ? null : pick(NOTES[outcome]),
+          voiceNoteUrl: hasVoice ? `voice/${s.id}/${n}.m4a` : null,
+          voiceNoteSeconds: hasVoice ? int(10, 90) : null,
+          aiSummary: hasVoice ? pick(AI_SUMMARIES) : null,
+          nextVisitAt: wantsNext ? istDate(day + int(2, 9), int(10, 17)) : null,
+          whatsappReminder: wantsNext && rand() < 0.7,
+        });
+        for (const p of [...activeProducts].sort(() => rand() - 0.5).slice(0, int(1, 3))) {
+          meetingProducts.push({ meetingId: id('mtg', n), productId: p.id! });
+        }
       }
     }
   }
 
-  // Attachments: on ~1 in 3 meetings
-  let attachments = 0;
-  for (const [i, m] of meetings.entries()) {
-    if (i % 3 !== 0) continue;
-    const isPhoto = i % 2 === 0;
-    await prisma.attachment.create({
-      data: {
+  // Attachments on ~1 in 3 meetings
+  const attachments: Prisma.AttachmentCreateManyInput[] = meetings
+    .filter((_, i) => i % 3 === 0)
+    .map((m, i) => {
+      const isPhoto = i % 2 === 0;
+      const name = isPhoto ? 'shelf.jpg' : 'price-list.pdf';
+      return {
         meetingId: m.id,
         type: isPhoto ? AttachmentType.PHOTO : AttachmentType.FILE,
-        url: `attachments/${m.id}/${isPhoto ? 'shelf.jpg' : 'price-list.pdf'}`,
-        name: isPhoto ? 'shelf.jpg' : 'price-list.pdf',
-        sizeBytes: isPhoto ? int(200, 900) * 1024 : int(50, 300) * 1024,
-      },
+        url: `attachments/${m.id}/${name}`,
+        name,
+        sizeBytes: (isPhoto ? int(200, 900) : int(50, 300)) * 1024,
+      };
     });
-    attachments++;
-  }
 
-  // Follow-ups: from every meeting with nextVisitAt, plus some by hand.
+  // Follow-ups: one per meeting with a next visit + one call per salesman due today.
   // Mix: overdue (pending in the past), due today, upcoming, done, cancelled.
-  let followUps = 0;
+  const now = new Date();
+  const followUps: Prisma.FollowUpCreateManyInput[] = [];
   for (const m of meetings) {
     if (!m.nextVisitAt) continue;
-    const isPast = m.nextVisitAt < new Date();
-    const status = isPast ? pick([FollowUpStatus.DONE, FollowUpStatus.DONE, FollowUpStatus.PENDING, FollowUpStatus.CANCELLED]) : FollowUpStatus.PENDING;
-    await prisma.followUp.create({
-      data: {
-        salesmanId: m.salesmanId,
-        clientId: m.clientId,
-        meetingId: m.id,
-        type: FollowUpType.VISIT,
-        dueAt: m.nextVisitAt,
-        status,
-        whatsappSentAt: m.whatsappReminder && isPast ? m.nextVisitAt : null,
-      },
+    const isPast = m.nextVisitAt < now;
+    followUps.push({
+      salesmanId: m.salesmanId,
+      clientId: m.clientId,
+      meetingId: m.id,
+      type: FollowUpType.VISIT,
+      dueAt: m.nextVisitAt,
+      status: isPast
+        ? pick([FollowUpStatus.DONE, FollowUpStatus.DONE, FollowUpStatus.PENDING, FollowUpStatus.CANCELLED])
+        : FollowUpStatus.PENDING,
+      whatsappSentAt: m.whatsappReminder && isPast ? m.nextVisitAt : null,
     });
-    followUps++;
   }
-  for (const [i, s] of activeSalesmen.entries()) {
+  activeSalesmen.forEach((s, i) => {
     const client = clients.find((c) => c.salesmanId === s.id)!;
-    await prisma.followUp.create({
-      data: { salesmanId: s.id, clientId: client.id, type: FollowUpType.CALL, dueAt: istDate(0, 11 + (i % 6), 30) }, // due today
+    followUps.push({
+      salesmanId: s.id!,
+      clientId: client.id,
+      type: FollowUpType.CALL,
+      dueAt: istDate(0, 11 + (i % 6), 30), // due today
     });
-    followUps++;
-  }
+  });
 
-  // Attendance: last 5 days. Today: some punched in (open), some not started.
-  let attendance = 0;
+  // Attendance: last 5 days. Today some are punched in (open) and some "not started".
+  const notStartedToday = (i: number) => i % 4 === 3;
+  const attendance: Prisma.AttendanceCreateManyInput[] = [];
   for (let day = -4; day <= 0; day++) {
-    for (const [i, s] of activeSalesmen.entries()) {
-      if (day === 0 && i % 4 === 3) continue; // "not started" today
+    activeSalesmen.forEach((s, i) => {
+      if (day === 0 && notStartedToday(i)) return;
       const area = AREAS[salesmen.indexOf(s) % AREAS.length];
-      await prisma.attendance.create({
-        data: {
-          salesmanId: s.id,
-          punchInAt: istDate(day, 9, int(0, 45)),
-          punchInLat: nearby(area.lat),
-          punchInLng: nearby(area.lng),
-          punchOutAt: day === 0 ? null : istDate(day, 18, int(0, 59)),
-          punchOutLat: day === 0 ? null : nearby(area.lat),
-          punchOutLng: day === 0 ? null : nearby(area.lng),
-        },
+      const open = day === 0;
+      attendance.push({
+        salesmanId: s.id!,
+        punchInAt: istDate(day, 9, int(0, 45)),
+        punchInLat: nearby(area.lat),
+        punchInLng: nearby(area.lng),
+        punchOutAt: open ? null : istDate(day, 18, int(0, 59)),
+        punchOutLat: open ? null : nearby(area.lat),
+        punchOutLng: open ? null : nearby(area.lng),
       });
-      attendance++;
-    }
+    });
   }
 
-  // Location pings: today, every 30 min from 9:30 for salesmen who punched in
-  let pings = 0;
-  for (const [i, s] of activeSalesmen.entries()) {
-    if (i % 4 === 3) continue;
+  // Location pings: today every 30 min from 9:30, only for salesmen who punched in
+  const pings: Prisma.LocationPingCreateManyInput[] = [];
+  activeSalesmen.forEach((s, i) => {
+    if (notStartedToday(i)) return;
     const area = AREAS[salesmen.indexOf(s) % AREAS.length];
-    for (let k = 0; k < 6; k++) {
-      await prisma.locationPing.create({
-        data: { salesmanId: s.id, latitude: nearby(area.lat), longitude: nearby(area.lng), accuracy: int(5, 30), recordedAt: istDate(0, 9 + Math.floor((k + 1) / 2), (k + 1) % 2 ? 30 : 0) },
+    for (let k = 1; k <= 6; k++) {
+      pings.push({
+        salesmanId: s.id!,
+        latitude: nearby(area.lat),
+        longitude: nearby(area.lng),
+        accuracy: int(5, 30),
+        recordedAt: istDate(0, 9 + Math.floor(k / 2), k % 2 ? 30 : 0),
       });
-      pings++;
     }
-  }
+  });
 
-  // Targets: last 7 days + next 3 days for every salesman
-  let targets = 0;
+  // Targets: last 7 days + next 3 days, 8 visits / Rs 50,000 a day
+  const targets: Prisma.TargetCreateManyInput[] = [];
   for (let day = -6; day <= 3; day++) {
     for (const s of salesmen) {
-      await prisma.target.create({
-        data: { salesmanId: s.id, date: dayOnly(day), visitsTarget: 8, dealValueTarget: 50000 },
-      });
-      targets++;
+      targets.push({ salesmanId: s.id!, date: dayOnly(day), visitsTarget: 8, dealValueTarget: 50000 });
     }
   }
 
+  // 2) Write everything in ONE transaction: all-or-nothing, few round trips (safe on a flaky network).
+  const links = Prisma.join(meetingProducts.map((l) => Prisma.sql`(${l.meetingId}, ${l.productId})`));
+  console.log('Writing to database (one transaction)...');
+  await prisma.$transaction([
+    // Clear old data, children first (foreign keys)
+    prisma.attachment.deleteMany(),
+    prisma.followUp.deleteMany(),
+    prisma.meeting.deleteMany(), // also clears _MeetingToProduct (cascade)
+    prisma.client.deleteMany(),
+    prisma.product.deleteMany(),
+    prisma.attendance.deleteMany(),
+    prisma.locationPing.deleteMany(),
+    prisma.target.deleteMany(),
+    prisma.user.deleteMany(),
+    // Insert
+    prisma.user.createMany({ data: users }),
+    prisma.product.createMany({ data: products }),
+    prisma.client.createMany({ data: clients }),
+    prisma.meeting.createMany({ data: meetings }),
+    // Implicit many-to-many table: column A = Meeting.id, B = Product.id
+    prisma.$executeRaw`INSERT INTO "_MeetingToProduct" ("A", "B") VALUES ${links}`,
+    prisma.attachment.createMany({ data: attachments }),
+    prisma.followUp.createMany({ data: followUps }),
+    prisma.attendance.createMany({ data: attendance }),
+    prisma.locationPing.createMany({ data: pings }),
+    prisma.target.createMany({ data: targets }),
+  ]);
+
   console.table({
-    users: salesmen.length + ADMINS.length,
+    users: users.length,
     products: products.length,
     clients: clients.length,
     meetings: meetings.length,
-    attachments,
-    followUps,
-    attendance,
-    locationPings: pings,
-    targets,
+    meetingProducts: meetingProducts.length,
+    attachments: attachments.length,
+    followUps: followUps.length,
+    attendance: attendance.length,
+    locationPings: pings.length,
+    targets: targets.length,
   });
 }
 

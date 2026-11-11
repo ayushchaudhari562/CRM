@@ -49,11 +49,7 @@ export default function AdminTabsLayout() {
     <View style={styles.container}>
       <Tabs
         tabBar={() => (
-          <BottomTabBar
-            tabs={tabs}
-            activeTab={getActiveTab()}
-            onTabPress={handleTabPress}
-          />
+          <BottomTabBar tabs={tabs} activeTab={getActiveTab()} onTabPress={handleTabPress} />
         )}
         screenOptions={{
           headerShown: false,
@@ -74,4 +70,3 @@ const styles = StyleSheet.create({
     backgroundColor: '#0B0C0D',
   },
 });
-

@@ -1,101 +1,90 @@
 import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Pressable,
-  ScrollView,
-  Image,
-  Alert,
-} from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, Image } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ChevronLeft, Check, Camera } from 'lucide-react-native';
+import { ChevronLeft, Check, Camera, AlertTriangle } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { useTheme, fonts } from '../../src/theme';
-import { Button, Card, MapCard } from '../../src/components';
-import { useAppStore } from '../../src/store';
+import { Button, MapCard } from '../../src/components';
+import { useAppStore, type CheckIn } from '../../src/store';
+import { formatTime } from '../../src/utils/format';
+
+type GpsState =
+  | { status: 'checking' }
+  | { status: 'captured'; location: NonNullable<CheckIn['location']> }
+  | { status: 'denied' }
+  | { status: 'error' };
+
+/** Ask permission and read the GPS position. Never throws. */
+async function readLocation(): Promise<GpsState> {
+  try {
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') return { status: 'denied' };
+    const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+    const { latitude, longitude, accuracy } = pos.coords;
+    return { status: 'captured', location: { latitude, longitude, accuracy: accuracy ?? null } };
+  } catch {
+    return { status: 'error' }; // GPS off / no signal
+  }
+}
 
 export default function CheckinScreen() {
   const { theme } = useTheme();
   const router = useRouter();
-  const { meetingDraft, updateMeetingDraft } = useAppStore();
+  const { setCheckIn } = useAppStore();
 
-  const [locationStatus, setLocationStatus] = useState<'checking' | 'captured' | 'mocked'>('captured');
-  const [selfieUri, setSelfieUri] = useState<string | null>(meetingDraft.selfieUri);
-  const [currentTime, setCurrentTime] = useState(
-    new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-  );
+  // Arrival time = when the salesman opens this screen.
+  const [checkInAt] = useState(() => new Date().toISOString());
+  const [gps, setGps] = useState<GpsState>({ status: 'checking' });
+  const [selfieUri, setSelfieUri] = useState<string | null>(null);
+  const [cameraError, setCameraError] = useState('');
 
   useEffect(() => {
-    // Request location permission gracefully
-    async function checkLocation() {
-      try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status === 'granted') {
-          const loc = await Location.getCurrentPositionAsync({});
-          updateMeetingDraft({
-            locationCaptured: true,
-            fakeGpsPassed: true,
-          });
-          setLocationStatus('captured');
-        } else {
-          // Graceful fallback to mock GPS coordinates
-          setLocationStatus('mocked');
-        }
-      } catch (e) {
-        // Fallback for web or dev environment without sensor
-        setLocationStatus('mocked');
-      }
-    }
-    checkLocation();
+    let active = true; // ignore the answer if the screen was closed meanwhile
+    readLocation().then((state) => active && setGps(state));
+    return () => {
+      active = false;
+    };
   }, []);
 
+  const retryLocation = () => {
+    setGps({ status: 'checking' });
+    readLocation().then(setGps);
+  };
+
+  // Selfie must come from the camera (it is proof of the visit), never from the gallery.
   const handleOpenCamera = async () => {
+    setCameraError('');
     try {
       const permission = await ImagePicker.requestCameraPermissionsAsync();
-      if (!permission.granted) {
-        // Fallback to image library if camera not allowed/available
-        const libResult = await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: ['images'],
-          allowsEditing: true,
-          aspect: [1, 1],
-          quality: 0.7,
-        });
-        if (!libResult.canceled && libResult.assets[0]) {
-          setSelfieUri(libResult.assets[0].uri);
-          updateMeetingDraft({ selfieUri: libResult.assets[0].uri });
-        }
-        return;
-      }
-
+      if (!permission.granted)
+        return setCameraError(
+          'Camera permission is off. Allow it in phone settings to take the selfie.',
+        );
       const result = await ImagePicker.launchCameraAsync({
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.7,
+        cameraType: ImagePicker.CameraType.front,
+        quality: 0.6,
       });
-
-      if (!result.canceled && result.assets[0]) {
-        setSelfieUri(result.assets[0].uri);
-        updateMeetingDraft({ selfieUri: result.assets[0].uri });
-      }
-    } catch (err) {
-      // Simulate taking a photo for preview
-      const mockSelfie = 'https://picsum.photos/200';
-      setSelfieUri(mockSelfie);
-      updateMeetingDraft({ selfieUri: mockSelfie });
+      if (!result.canceled && result.assets[0]) setSelfieUri(result.assets[0].uri);
+    } catch {
+      setCameraError('Could not open the camera. Please try again.');
     }
   };
 
   const handleContinue = () => {
-    updateMeetingDraft({
-      checkinTime: currentTime,
-      locationCaptured: true,
-      timeSaved: true,
-      fakeGpsPassed: true,
-    });
+    setCheckIn({ checkInAt, location: gps.status === 'captured' ? gps.location : null, selfieUri });
     router.push('/(salesman)/meeting-details');
   };
+
+  const gpsText =
+    gps.status === 'captured'
+      ? `Location captured (±${Math.round(gps.location.accuracy ?? 0)} m)`
+      : gps.status === 'checking'
+        ? 'Getting your location...'
+        : gps.status === 'denied'
+          ? 'Location permission denied'
+          : 'Could not get location (GPS off?)';
+  const gpsOk = gps.status === 'captured';
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.bg }]}>
@@ -115,10 +104,7 @@ export default function CheckinScreen() {
         <Text style={[styles.barTitle, { color: theme.colors.text }]}>Start meeting</Text>
       </View>
 
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Title */}
         <View style={styles.header}>
           <Text style={[styles.title, { color: theme.colors.text }]}>Check in</Text>
@@ -132,32 +118,17 @@ export default function CheckinScreen() {
 
         {/* Verification Checklist */}
         <View style={[styles.checklistCard, { backgroundColor: theme.colors.surface }]}>
-          <View style={styles.checkItem}>
-            <View style={[styles.checkCircle, { backgroundColor: theme.colors.accentSoftBg }]}>
-              <Check size={16} color={theme.colors.accent} strokeWidth={2.5} />
-            </View>
-            <Text style={[styles.checkText, { color: theme.colors.text }]}>
-              Location captured
-            </Text>
-          </View>
-
-          <View style={styles.checkItem}>
-            <View style={[styles.checkCircle, { backgroundColor: theme.colors.accentSoftBg }]}>
-              <Check size={16} color={theme.colors.accent} strokeWidth={2.5} />
-            </View>
-            <Text style={[styles.checkText, { color: theme.colors.text }]}>
-              Time saved: {currentTime}
-            </Text>
-          </View>
-
-          <View style={styles.checkItem}>
-            <View style={[styles.checkCircle, { backgroundColor: theme.colors.accentSoftBg }]}>
-              <Check size={16} color={theme.colors.accent} strokeWidth={2.5} />
-            </View>
-            <Text style={[styles.checkText, { color: theme.colors.text }]}>
-              Fake GPS check passed
-            </Text>
-          </View>
+          <CheckRow ok={gpsOk} text={gpsText} />
+          {gps.status === 'denied' || gps.status === 'error' ? (
+            <Button
+              title="Try again"
+              onPress={retryLocation}
+              variant="outline"
+              size="small"
+              fullWidth={false}
+            />
+          ) : null}
+          <CheckRow ok text={`Time saved: ${formatTime(checkInAt)}`} />
         </View>
 
         {/* Selfie Card */}
@@ -185,6 +156,14 @@ export default function CheckinScreen() {
               variant="outline"
               size="compact"
             />
+            {cameraError ? (
+              <Text
+                accessibilityRole="alert"
+                style={[styles.errorText, { color: theme.colors.adminRedText }]}
+              >
+                {cameraError}
+              </Text>
+            ) : null}
           </View>
         </View>
 
@@ -194,6 +173,7 @@ export default function CheckinScreen() {
         <Button
           title="Continue to client details"
           onPress={handleContinue}
+          disabled={gps.status === 'checking'}
           variant="primary"
           size="normal"
           style={styles.continueBtn}
@@ -203,7 +183,32 @@ export default function CheckinScreen() {
   );
 }
 
+function CheckRow({ ok, text }: { ok: boolean; text: string }) {
+  const { theme } = useTheme();
+  return (
+    <View style={styles.checkItem}>
+      <View
+        style={[
+          styles.checkCircle,
+          { backgroundColor: ok ? theme.colors.accentSoftBg : theme.colors.warningBg },
+        ]}
+      >
+        {ok ? (
+          <Check size={16} color={theme.colors.accent} strokeWidth={2.5} />
+        ) : (
+          <AlertTriangle size={14} color={theme.colors.warning} />
+        )}
+      </View>
+      <Text style={[styles.checkText, { color: theme.colors.text }]}>{text}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  errorText: {
+    fontFamily: fonts.regular,
+    fontSize: 12,
+  },
   container: {
     flex: 1,
   },
@@ -303,4 +308,3 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
 });
-

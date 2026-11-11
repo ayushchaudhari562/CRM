@@ -17,6 +17,7 @@ export default function SalesmanLayout() {
       <Stack.Screen name="checkin" />
       <Stack.Screen name="meeting-details" />
       <Stack.Screen name="meeting-saved" />
+      <Stack.Screen name="client/[id]" />
     </Stack>
   );
 }

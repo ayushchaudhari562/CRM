@@ -47,6 +47,7 @@ export const Field: React.FC<FieldProps> = ({
             borderColor: error ? theme.colors.adminRedText : theme.colors.border,
             borderRadius: theme.radius.field,
           },
+          inputProps.multiline ? styles.multilineWrapper : null,
         ]}
       >
         {leftElement ? <View style={styles.adornment}>{leftElement}</View> : null}
@@ -102,6 +103,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 14,
+  },
+  multilineWrapper: {
+    height: undefined,
+    minHeight: 96,
+    alignItems: 'flex-start',
+    paddingVertical: 10,
   },
   input: {
     flex: 1,

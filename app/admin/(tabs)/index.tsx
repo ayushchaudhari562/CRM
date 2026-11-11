@@ -1,19 +1,34 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, Modal } from 'react-native';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { X, LogOut } from 'lucide-react-native';
 import { useTheme, fonts } from '../../../src/theme';
 import { TickRing, Button, Field, LoadingView, ErrorView } from '../../../src/components';
 import { crmService } from '../../../src/services';
 import type { AdminOverview } from '../../../src/types';
 import { useAppStore } from '../../../src/store';
+import { formatDay, formatINRShort } from '../../../src/utils/format';
 
 export default function AdminHomeScreen() {
   const { theme } = useTheme();
-  const { logout } = useAppStore();
+  const { user, logout } = useAppStore();
   const [showAddModal, setShowAddModal] = useState(false);
   const [newSalesmanName, setNewSalesmanName] = useState('');
   const [newSalesmanPhone, setNewSalesmanPhone] = useState('');
+  const [addError, setAddError] = useState('');
+  const qc = useQueryClient();
+  const addSalesman = useMutation({
+    mutationFn: crmService.addSalesman,
+    onSuccess: () => {
+      setShowAddModal(false);
+      setNewSalesmanName('');
+      setNewSalesmanPhone('');
+      setAddError('');
+      qc.invalidateQueries({ queryKey: ['admin-overview'] });
+      qc.invalidateQueries({ queryKey: ['admin-progress'] });
+    },
+    onError: (e) => setAddError(e.message),
+  });
 
   const {
     data: overview,
@@ -30,15 +45,19 @@ export default function AdminHomeScreen() {
   }
 
   if (error || !overview) {
-    return <ErrorView message="Could not load admin stats" onRetry={() => refetch()} />;
+    return (
+      <ErrorView
+        message={error?.message ?? 'Could not load admin stats'}
+        onRetry={() => refetch()}
+      />
+    );
   }
 
-  const handleAddSalesman = () => {
-    if (!newSalesmanName) return;
-    setShowAddModal(false);
-    setNewSalesmanName('');
-    setNewSalesmanPhone('');
-  };
+  const handleAddSalesman = () =>
+    addSalesman.mutate({ name: newSalesmanName, phone: newSalesmanPhone });
+  const targetPct = overview.visitsTarget
+    ? Math.round((overview.visitsDone / overview.visitsTarget) * 100)
+    : 0;
 
   return (
     <ScrollView
@@ -49,7 +68,7 @@ export default function AdminHomeScreen() {
       <View style={styles.topSection}>
         {/* Header date and Add salesman */}
         <View style={styles.topRow}>
-          <Text style={[styles.dateText, { color: theme.colors.muted }]}>Tuesday, 10 Nov</Text>
+          <Text style={[styles.dateText, { color: theme.colors.muted }]}>{formatDay()}</Text>
           <View style={styles.topActions}>
             <Pressable
               onPress={() => setShowAddModal(true)}
@@ -73,9 +92,12 @@ export default function AdminHomeScreen() {
         {/* Welcome Manager heading */}
         <View style={styles.headingBlock}>
           <Text style={[styles.heading, { color: theme.colors.text }]}>
-            Welcome in,{'\n'}Manager
+            Welcome in,{'\n'}
+            {user?.name.split(' ')[0] ?? 'Manager'}
           </Text>
-          <Text style={[styles.salesmanCount, { color: theme.colors.muted }]}>12 salesmen</Text>
+          <Text style={[styles.salesmanCount, { color: theme.colors.muted }]}>
+            {overview.salesmenCount} salesmen
+          </Text>
         </View>
 
         {/* 86 Visits Today Ring */}
@@ -115,7 +137,7 @@ export default function AdminHomeScreen() {
                 Visits of {overview.visitsTarget}
               </Text>
               <Text style={[styles.metricHighlight, { color: theme.colors.accent }]}>
-                {Math.round((overview.visitsDone / overview.visitsTarget) * 100)}%
+                {targetPct}%
               </Text>
             </View>
           </View>
@@ -130,7 +152,7 @@ export default function AdminHomeScreen() {
                 Deals closed
               </Text>
               <Text style={[styles.metricHighlight, { color: theme.colors.accent }]}>
-                ₹{(overview.dealValueTotal / 100000).toFixed(1)}L
+                {formatINRShort(overview.dealValueTotal)}
               </Text>
             </View>
           </View>
@@ -222,7 +244,7 @@ export default function AdminHomeScreen() {
               label="Full name"
               value={newSalesmanName}
               onChangeText={setNewSalesmanName}
-              placeholder="e.g. Salesman E"
+              placeholder="e.g. Rahul Sharma"
             />
 
             <Field
@@ -230,11 +252,20 @@ export default function AdminHomeScreen() {
               value={newSalesmanPhone}
               onChangeText={setNewSalesmanPhone}
               keyboardType="phone-pad"
-              placeholder="+91 98000 00000"
+              placeholder="98765 43210"
             />
 
+            {addError ? (
+              <Text
+                accessibilityRole="alert"
+                style={{ color: theme.colors.adminRedText, fontFamily: fonts.regular }}
+              >
+                {addError}
+              </Text>
+            ) : null}
             <Button
               title="Add Salesman"
+              loading={addSalesman.isPending}
               onPress={handleAddSalesman}
               variant="primary"
               size="normal"

@@ -1,58 +1,38 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
-import { MapPin, CheckCircle2 } from 'lucide-react-native';
-import { useQuery } from '@tanstack/react-query';
+import { MapPin, CheckCircle2, ChevronRight } from 'lucide-react-native';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTheme, fonts } from '../../../src/theme';
-import { useAppStore } from '../../../src/store';
 import { Button, TickRing, LoadingView, ErrorView } from '../../../src/components';
 import { crmService } from '../../../src/services';
-import type { Reminder } from '../../../src/types';
+import { formatDay, formatTime, greeting, initialOf } from '../../../src/utils/format';
 
 export default function SalesmanHomeScreen() {
   const { theme } = useTheme();
   const router = useRouter();
-  const { user, isPunchedIn, punchInTime, togglePunchIn } = useAppStore();
+  const qc = useQueryClient();
 
   const {
-    data: reminders,
-    isLoading: loadingReminders,
-    error: remindersError,
-    refetch: refetchReminders,
-  } = useQuery<Reminder[]>({
-    queryKey: ['reminders', user.id],
-    queryFn: () => crmService.getReminders(user.id),
+    data: home,
+    isLoading,
+    error,
+    refetch,
+  } = useQuery({ queryKey: ['home'], queryFn: crmService.getHome });
+
+  const punch = useMutation({
+    mutationFn: crmService.togglePunch,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['home'] }),
   });
 
-  const {
-    data: meetings,
-    isLoading: loadingMeetings,
-    error: meetingsError,
-    refetch: refetchMeetings,
-  } = useQuery({
-    queryKey: ['meetings', user.id],
-    queryFn: () => crmService.getMeetings(user.id),
-  });
-
-  if (loadingReminders && loadingMeetings) {
-    return <LoadingView message="Loading today's plan..." />;
-  }
-
-  if (remindersError || meetingsError) {
+  if (isLoading) return <LoadingView message="Loading today's plan..." />;
+  if (error || !home) {
     return (
-      <ErrorView
-        message="Could not load your visits plan"
-        onRetry={() => {
-          refetchReminders();
-          refetchMeetings();
-        }}
-      />
+      <ErrorView message={error?.message ?? 'Could not load your plan'} onRetry={() => refetch()} />
     );
   }
 
-  // Calculate visits done (e.g. 3 done out of 8 target)
-  const visitsDone = meetings?.length ? Math.min(meetings.length, 3) : 3;
-  const visitsTarget = 8;
+  const isPunchedIn = !!home.punchedInAt;
 
   return (
     <ScrollView
@@ -63,13 +43,12 @@ export default function SalesmanHomeScreen() {
       <View style={styles.topSection}>
         {/* Date and Punch in row */}
         <View style={styles.dateRow}>
-          <Text style={[styles.dateText, { color: theme.colors.muted }]}>
-            Tuesday, 10 Nov
-          </Text>
+          <Text style={[styles.dateText, { color: theme.colors.muted }]}>{formatDay()}</Text>
           <Pressable
-            onPress={togglePunchIn}
+            onPress={() => punch.mutate()}
+            disabled={punch.isPending}
             accessibilityRole="button"
-            accessibilityLabel={isPunchedIn ? 'Punched in' : 'Punch in'}
+            accessibilityLabel={isPunchedIn ? 'Punch out' : 'Punch in'}
             style={[
               styles.punchInBtn,
               {
@@ -82,13 +61,11 @@ export default function SalesmanHomeScreen() {
               <View style={styles.punchInActiveRow}>
                 <CheckCircle2 size={14} color={theme.colors.accent} />
                 <Text style={[styles.punchInText, { color: theme.colors.accent }]}>
-                  {punchInTime ? `Punched in ${punchInTime}` : 'Punched in'}
+                  Punched in {formatTime(home.punchedInAt!)}
                 </Text>
               </View>
             ) : (
-              <Text style={[styles.punchInText, { color: theme.colors.text }]}>
-                Punch in
-              </Text>
+              <Text style={[styles.punchInText, { color: theme.colors.text }]}>Punch in</Text>
             )}
           </Pressable>
         </View>
@@ -96,17 +73,19 @@ export default function SalesmanHomeScreen() {
         {/* Heading */}
         <View style={styles.headingWrapper}>
           <Text style={[styles.heading, { color: theme.colors.text }]}>
-            Good morning,{'\n'}Today&apos;s plan
+            {greeting()},{'\n'}Today&apos;s plan
           </Text>
         </View>
 
         {/* Radial Tick Ring */}
         <View style={styles.ringWrapper}>
           <TickRing
-            value={`${visitsDone}/${visitsTarget}`}
-            label="Visits done"
-            activeCount={visitsDone}
-            totalCount={visitsTarget}
+            value={
+              home.visitsTarget ? `${home.visitsDone}/${home.visitsTarget}` : `${home.visitsDone}`
+            }
+            label={home.visitsTarget ? 'Visits done' : 'Visits today'}
+            activeCount={home.visitsDone}
+            totalCount={home.visitsTarget}
             size={220}
           />
         </View>
@@ -140,48 +119,38 @@ export default function SalesmanHomeScreen() {
         </View>
 
         <View style={styles.followupsList}>
-          {reminders && reminders.length > 0 ? (
-            reminders.map((item) => {
-              const initial = item.clientName.replace('Client ', '').trim() || item.clientName.charAt(0);
-              return (
-                <View key={item.id} style={styles.followupRow}>
-                  <View
-                    style={[
-                      styles.avatarSquare,
-                      { backgroundColor: theme.colors.text },
-                    ]}
-                  >
-                    <Text style={[styles.avatarText, { color: theme.colors.bg }]}>
-                      {initial}
-                    </Text>
-                  </View>
-
-                  <View style={styles.clientDetails}>
-                    <Text style={[styles.clientName, { color: theme.colors.text }]}>
-                      {item.clientName}
-                    </Text>
-                    <Text style={[styles.clientSub, { color: theme.colors.muted }]}>
-                      {item.clientName === 'Client A'
-                        ? 'Kirana store · 11:00 AM'
-                        : item.clientName === 'Client B'
-                        ? 'Hardware shop · 1:30 PM'
-                        : 'Pharmacy · 4:00 PM'}
-                    </Text>
-                  </View>
-
-                  <View
-                    style={[
-                      styles.statusBadge,
-                      { backgroundColor: theme.colors.surface2 },
-                    ]}
-                  >
-                    <Text style={[styles.statusText, { color: theme.colors.accent }]}>
-                      {item.type}
-                    </Text>
-                  </View>
+          {home.followUpsToday.length > 0 ? (
+            home.followUpsToday.map((item) => (
+              <Pressable
+                key={item.id}
+                onPress={() => router.push(`/(salesman)/client/${item.clientId}`)}
+                accessibilityRole="button"
+                accessibilityLabel={`${item.clientName}, ${item.type} at ${formatTime(item.dueAt)}. Open client details`}
+                style={({ pressed }) => [styles.followupRow, { opacity: pressed ? 0.7 : 1 }]}
+              >
+                <View style={[styles.avatarSquare, { backgroundColor: theme.colors.text }]}>
+                  <Text style={[styles.avatarText, { color: theme.colors.bg }]}>
+                    {initialOf(item.clientName)}
+                  </Text>
                 </View>
-              );
-            })
+
+                <View style={styles.clientDetails}>
+                  <Text style={[styles.clientName, { color: theme.colors.text }]} numberOfLines={1}>
+                    {item.clientName}
+                  </Text>
+                  <Text style={[styles.clientSub, { color: theme.colors.muted }]} numberOfLines={1}>
+                    {item.businessType} · {formatTime(item.dueAt)}
+                  </Text>
+                </View>
+
+                <View style={[styles.statusBadge, { backgroundColor: theme.colors.surface2 }]}>
+                  <Text style={[styles.statusText, { color: theme.colors.accent }]}>
+                    {item.type}
+                  </Text>
+                </View>
+                <ChevronRight size={16} color={theme.colors.muted} />
+              </Pressable>
+            ))
           ) : (
             <Text style={{ color: theme.colors.muted, textAlign: 'center', padding: 12 }}>
               No follow-ups due today
@@ -264,6 +233,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    minHeight: 44,
   },
   avatarSquare: {
     width: 40,
@@ -298,4 +268,3 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
 });
-

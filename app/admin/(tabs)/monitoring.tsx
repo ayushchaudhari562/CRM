@@ -6,7 +6,8 @@ import { ChevronLeft, Search, X } from 'lucide-react-native';
 import { useTheme, fonts } from '../../../src/theme';
 import { LoadingView, ErrorView } from '../../../src/components';
 import { crmService } from '../../../src/services';
-import type { SalesmanProgress } from '../../../src/types';
+import type { FieldStatus, SalesmanProgress } from '../../../src/types';
+import { formatINR, timeAgo } from '../../../src/utils/format';
 
 export default function AdminLiveMonitoringScreen() {
   const { theme } = useTheme();
@@ -20,7 +21,8 @@ export default function AdminLiveMonitoringScreen() {
     error,
     refetch,
   } = useQuery<SalesmanProgress[]>({
-    queryKey: ['salesman-progress'],
+    queryKey: ['admin-progress'],
+    refetchInterval: 60_000, // live screen: refresh every minute
     queryFn: () => crmService.getSalesmanProgress(),
   });
 
@@ -31,14 +33,23 @@ export default function AdminLiveMonitoringScreen() {
   if (error || !progressList) {
     return (
       <ErrorView
-        message="Could not load live monitoring details"
+        message={error?.message ?? 'Could not load live monitoring'}
         onRetry={() => refetch()}
       />
     );
   }
 
+  const total = progressList.length;
+  const count = (st: FieldStatus) => progressList.filter((p) => p.status === st).length;
+  const pct = (n: number) => (total ? Math.round((n / total) * 100) : 0);
+  const rows = [
+    { label: 'In meeting' as const, color: theme.colors.accent },
+    { label: 'On the road' as const, color: theme.colors.text },
+    { label: 'Not started' as const, color: theme.colors.statusIdle },
+  ].map((r) => ({ ...r, n: count(r.label) }));
+
   const filteredSalesmen = progressList.filter((s) =>
-    s.name.toLowerCase().includes(searchQuery.toLowerCase())
+    s.name.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
   return (
@@ -104,16 +115,21 @@ export default function AdminLiveMonitoringScreen() {
       <View style={styles.headingBlock}>
         <Text style={[styles.title, { color: theme.colors.text }]}>Live monitoring</Text>
         <Text style={[styles.subtitle, { color: theme.colors.muted }]}>
-          12 salesmen · updated just now
+          {total} salesmen · updates every minute
         </Text>
       </View>
 
       {/* Segmented Status Bar */}
       <View style={styles.segmentedBarWrapper}>
         <View style={styles.segmentedBar}>
-          <View style={[styles.barSegment, { flex: 5, backgroundColor: theme.colors.accent }]} />
-          <View style={[styles.barSegment, { flex: 4, backgroundColor: theme.colors.text }]} />
-          <View style={[styles.barSegment, { flex: 3, backgroundColor: '#8C7B65' }]} />
+          {rows.map((r) =>
+            r.n ? (
+              <View
+                key={r.label}
+                style={[styles.barSegment, { flex: r.n, backgroundColor: r.color }]}
+              />
+            ) : null,
+          )}
         </View>
       </View>
 
@@ -121,26 +137,16 @@ export default function AdminLiveMonitoringScreen() {
       <View style={[styles.card, { backgroundColor: theme.colors.surface }]}>
         <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Field status</Text>
 
-        <View style={styles.statusRow}>
-          <View style={[styles.statusSquare, { backgroundColor: theme.colors.accent }]} />
-          <Text style={[styles.statusLabel, { color: theme.colors.text }]}>In meeting</Text>
-          <Text style={[styles.statusFraction, { color: theme.colors.muted }]}>5/12</Text>
-          <Text style={[styles.statusPercent, { color: theme.colors.text }]}>42%</Text>
-        </View>
-
-        <View style={styles.statusRow}>
-          <View style={[styles.statusSquare, { backgroundColor: theme.colors.text }]} />
-          <Text style={[styles.statusLabel, { color: theme.colors.text }]}>On the road</Text>
-          <Text style={[styles.statusFraction, { color: theme.colors.muted }]}>4/12</Text>
-          <Text style={[styles.statusPercent, { color: theme.colors.text }]}>33%</Text>
-        </View>
-
-        <View style={styles.statusRow}>
-          <View style={[styles.statusSquare, { backgroundColor: '#8C7B65' }]} />
-          <Text style={[styles.statusLabel, { color: theme.colors.text }]}>Not started</Text>
-          <Text style={[styles.statusFraction, { color: theme.colors.muted }]}>3/12</Text>
-          <Text style={[styles.statusPercent, { color: theme.colors.text }]}>25%</Text>
-        </View>
+        {rows.map((r) => (
+          <View key={r.label} style={styles.statusRow}>
+            <View style={[styles.statusSquare, { backgroundColor: r.color }]} />
+            <Text style={[styles.statusLabel, { color: theme.colors.text }]}>{r.label}</Text>
+            <Text style={[styles.statusFraction, { color: theme.colors.muted }]}>
+              {r.n}/{total}
+            </Text>
+            <Text style={[styles.statusPercent, { color: theme.colors.text }]}>{pct(r.n)}%</Text>
+          </View>
+        ))}
       </View>
 
       {/* Today&apos;s progress card */}
@@ -151,34 +157,25 @@ export default function AdminLiveMonitoringScreen() {
           {filteredSalesmen.map((s) => (
             <Pressable
               key={s.id}
-              onPress={() => router.push(`/admin/report/m-3`)}
-              style={({ pressed }) => [
-                styles.salesmanItem,
-                { opacity: pressed ? 0.8 : 1 },
-              ]}
+              onPress={() => s.lastMeetingId && router.push(`/admin/report/${s.lastMeetingId}`)}
+              disabled={!s.lastMeetingId}
+              accessibilityRole="button"
+              accessibilityLabel={`${s.name}, ${s.status}, ${s.visits} visits today`}
+              style={({ pressed }) => [styles.salesmanItem, { opacity: pressed ? 0.8 : 1 }]}
             >
-              <View
-                style={[
-                  styles.avatarBox,
-                  { backgroundColor: theme.colors.text },
-                ]}
-              >
-                <Text style={[styles.avatarText, { color: theme.colors.bg }]}>
-                  {s.initials}
-                </Text>
+              <View style={[styles.avatarBox, { backgroundColor: theme.colors.text }]}>
+                <Text style={[styles.avatarText, { color: theme.colors.bg }]}>{s.initials}</Text>
               </View>
 
               <View style={styles.salesmanInfo}>
-                <Text style={[styles.salesmanName, { color: theme.colors.text }]}>
-                  {s.name}
-                </Text>
+                <Text style={[styles.salesmanName, { color: theme.colors.text }]}>{s.name}</Text>
                 <Text style={[styles.salesmanSub, { color: theme.colors.muted }]}>
-                  {s.visits} visits · {s.lastUpdated}
+                  {s.status} · {s.visits} visits · {timeAgo(s.lastActivityAt)}
                 </Text>
               </View>
 
               <Text style={[styles.salesmanAmount, { color: theme.colors.accent }]}>
-                {s.dealValue > 0 ? `+₹${s.dealValue.toLocaleString('en-IN')}` : '₹0'}
+                {s.dealValue > 0 ? `+${formatINR(s.dealValue)}` : formatINR(0)}
               </Text>
             </Pressable>
           ))}
@@ -324,4 +321,3 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
 });
-

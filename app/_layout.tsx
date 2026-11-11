@@ -1,9 +1,9 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, StyleSheet, ActivityIndicator } from 'react-native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
 import {
   useFonts,
   Inter_400Regular,
@@ -12,26 +12,50 @@ import {
 } from '@expo-google-fonts/inter';
 import { ThemeProvider, useTheme, baseColors } from '../src/theme';
 import { useAppStore } from '../src/store';
-import { DevBar, OfflineBanner } from '../src/components';
+import { OfflineBanner } from '../src/components';
+import { supabase } from '../src/services/supabase';
+import { clearSession, getToken } from '../src/services/session';
+import { crmService } from '../src/services';
+import { queryClient } from '../src/services/queryClient';
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: 1,
-      refetchOnWindowFocus: false,
-      staleTime: 1000 * 60 * 5,
-    },
-  },
-});
+/** On app start: if a saved login exists, load the user (and role) from our API. */
+function useRestoreSession() {
+  const { setUser, setAuthReady } = useAppStore();
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (await getToken()) {
+        try {
+          const me = await crmService.getMe();
+          if (!cancelled) setUser(me);
+        } catch {
+          await clearSession(); // expired session or user removed/deactivated
+        }
+      }
+      if (!cancelled) setAuthReady();
+    })();
+    // Session ended elsewhere (token refresh failed, signed out) -> back to login.
+    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT') setUser(null);
+    });
+    return () => {
+      cancelled = true;
+      sub.subscription.unsubscribe();
+    };
+  }, [setUser, setAuthReady]);
+}
 
 function AppContent() {
   const { theme } = useTheme();
-  const { offlineMode, isLoggedIn, role } = useAppStore();
+  const { offlineMode, user, authReady } = useAppStore();
+  useRestoreSession();
+
+  if (!authReady) return <Loading />;
+  const role = user?.role;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.bg }]}>
       <StatusBar style="light" />
-      {__DEV__ && <DevBar />}
       <OfflineBanner visible={offlineMode} />
       <View style={styles.content}>
         <Stack
@@ -42,16 +66,15 @@ function AppContent() {
           }}
         >
           {/* Route guards: a group is only reachable when its guard is true.
-              When a guard flips (login/logout), expo-router redirects automatically,
-              and "/" opens the home of the one allowed group.
-              Note: this is UX only. Real access control must be done by the backend. */}
-          <Stack.Protected guard={!isLoggedIn}>
+              When a guard flips (login/logout), expo-router redirects automatically.
+              This is UX only: the API checks the token and role on every request. */}
+          <Stack.Protected guard={!user}>
             <Stack.Screen name="login" />
           </Stack.Protected>
-          <Stack.Protected guard={isLoggedIn && role === 'salesman'}>
+          <Stack.Protected guard={role === 'salesman'}>
             <Stack.Screen name="(salesman)" />
           </Stack.Protected>
-          <Stack.Protected guard={isLoggedIn && role === 'admin'}>
+          <Stack.Protected guard={role === 'admin'}>
             <Stack.Screen name="admin" />
           </Stack.Protected>
         </Stack>
@@ -60,20 +83,17 @@ function AppContent() {
   );
 }
 
-export default function RootLayout() {
-  const [fontsLoaded] = useFonts({
-    Inter_400Regular,
-    Inter_500Medium,
-    Inter_600SemiBold,
-  });
+function Loading() {
+  return (
+    <View style={[styles.loading, { backgroundColor: baseColors.bg }]}>
+      <ActivityIndicator size="large" color={baseColors.accent} />
+    </View>
+  );
+}
 
-  if (!fontsLoaded) {
-    return (
-      <View style={[styles.loading, { backgroundColor: baseColors.bg }]}>
-        <ActivityIndicator size="large" color={baseColors.accent} />
-      </View>
-    );
-  }
+export default function RootLayout() {
+  const [fontsLoaded] = useFonts({ Inter_400Regular, Inter_500Medium, Inter_600SemiBold });
+  if (!fontsLoaded) return <Loading />;
 
   return (
     <SafeAreaProvider>
@@ -87,15 +107,7 @@ export default function RootLayout() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  content: {
-    flex: 1,
-  },
-  loading: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  container: { flex: 1 },
+  content: { flex: 1 },
+  loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 });
