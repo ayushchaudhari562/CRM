@@ -1,0 +1,54 @@
+{
+  "expo": {
+    "name": "Sales CRM",
+    "slug": "sales-crm",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#0B0C0D",
+    "scheme": "salescrm",
+    "ios": {
+      "bundleIdentifier": "com.salescrm.app"
+    },
+    "android": {
+      "package": "com.salescrm.app",
+      "versionCode": 1,
+      "permissions": [
+        "CAMERA",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "RECORD_AUDIO"
+      ]
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-splash-screen",
+      "expo-status-bar",
+      "expo-font",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Allow Sales CRM to record voice notes for your meetings."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Allow Sales CRM to take a check-in selfie.",
+          "photosPermission": "Allow Sales CRM to attach photos to meetings."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Allow Sales CRM to verify your location at check-in."
+        }
+      ],
+      "expo-asset"
+    ]
+  }
+}

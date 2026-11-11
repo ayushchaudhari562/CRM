@@ -31,7 +31,7 @@ function AppContent() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.bg }]}>
       <StatusBar style="light" />
-      <DevBar />
+      {__DEV__ && <DevBar />}
       <OfflineBanner visible={offlineMode} />
       <View style={styles.content}>
         <Stack
