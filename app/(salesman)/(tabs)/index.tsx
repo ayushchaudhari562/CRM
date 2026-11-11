@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { MapPin, CheckCircle2 } from 'lucide-react-native';
 import { useQuery } from '@tanstack/react-query';
-import { useTheme } from '../../../src/theme';
+import { useTheme, fonts } from '../../../src/theme';
 import { useAppStore } from '../../../src/store';
 import { Button, TickRing, LoadingView, ErrorView } from '../../../src/components';
 import { crmService } from '../../../src/services';
@@ -211,7 +211,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   dateText: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 14,
   },
   punchInBtn: {
@@ -228,17 +228,15 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   punchInText: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.medium,
     fontSize: 14,
-    fontWeight: '500',
   },
   headingWrapper: {
     paddingTop: 14,
   },
   heading: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.semibold,
     fontSize: 30,
-    fontWeight: '600',
     lineHeight: 35,
   },
   ringWrapper: {
@@ -256,9 +254,8 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   sectionTitle: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.semibold,
     fontSize: 18,
-    fontWeight: '600',
   },
   followupsList: {
     gap: 14,
@@ -276,21 +273,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarText: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.semibold,
     fontSize: 16,
-    fontWeight: '600',
   },
   clientDetails: {
     flex: 1,
     gap: 2,
   },
   clientName: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.medium,
     fontSize: 15,
-    fontWeight: '500',
   },
   clientSub: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 12,
   },
   statusBadge: {
@@ -299,9 +294,8 @@ const styles = StyleSheet.create({
     borderRadius: 14,
   },
   statusText: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.medium,
     fontSize: 12,
-    fontWeight: '500',
   },
 });
 

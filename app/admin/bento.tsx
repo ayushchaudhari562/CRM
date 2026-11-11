@@ -11,7 +11,7 @@ import {
 import { useRouter } from 'expo-router';
 import Svg, { Rect, Path, Circle } from 'react-native-svg';
 import { MapPin, Search, Play, Pause, X } from 'lucide-react-native';
-import { useTheme } from '../../src/theme';
+import { useTheme, fonts } from '../../src/theme';
 import { Button, Field } from '../../src/components';
 import { APP_NAME, salesmanProgress } from '../../src/mocks/data';
 
@@ -47,9 +47,9 @@ export default function AdminWebBentoScreen() {
 
   const handleNavPress = (tab: 'Overview' | 'Team' | 'Map' | 'Reports') => {
     setActiveNav(tab);
-    if (tab === 'Team') router.push('/(admin)/(tabs)/monitoring');
-    else if (tab === 'Map') router.push('/(admin)/(tabs)/map');
-    else if (tab === 'Reports') router.push('/(admin)/(tabs)/reports');
+    if (tab === 'Team') router.push('/admin/monitoring');
+    else if (tab === 'Map') router.push('/admin/map');
+    else if (tab === 'Reports') router.push('/admin/reports');
   };
 
   return (
@@ -593,9 +593,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   brandText: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.semibold,
     fontSize: 16,
-    fontWeight: '600',
   },
   navPills: {
     flexDirection: 'row',
@@ -612,9 +611,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   navText: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.medium,
     fontSize: 14,
-    fontWeight: '500',
   },
   rightActions: {
     flexDirection: 'row',
@@ -637,22 +635,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   addSalesmanText: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.semibold,
     fontSize: 14,
-    fontWeight: '600',
     color: '#FFFFFF',
   },
   titleBlock: {
     gap: 8,
   },
   pageTitle: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.semibold,
     fontSize: 40,
-    fontWeight: '600',
     lineHeight: 44,
   },
   pageSub: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 14,
   },
   bentoGrid: {
@@ -672,20 +668,19 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   heroLabel: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 16,
     color: '#FFFFFF',
   },
   heroNumber: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.semibold,
     fontSize: 110,
-    fontWeight: '600',
     lineHeight: 115,
     color: '#FFFFFF',
     marginTop: 'auto',
   },
   heroSub: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 15,
     color: '#FFFFFF',
     marginTop: 10,
@@ -703,26 +698,23 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   tileLabel: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 13,
   },
   metricBig: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.semibold,
     fontSize: 52,
-    fontWeight: '600',
     lineHeight: 56,
     marginTop: 'auto',
   },
   metricHighlightRed: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.medium,
     fontSize: 13,
-    fontWeight: '500',
     marginTop: 8,
   },
   tileTitle: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.semibold,
     fontSize: 16,
-    fontWeight: '600',
   },
   fieldStatusBar: {
     flexDirection: 'row',
@@ -751,14 +743,13 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   statusMiniText: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 14,
     flex: 1,
   },
   statusMiniCount: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.semibold,
     fontSize: 14,
-    fontWeight: '600',
   },
   mapAbsoluteContainer: {
     position: 'absolute',
@@ -775,9 +766,8 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   badgeText: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.semibold,
     fontSize: 16,
-    fontWeight: '600',
   },
   outcomesList: {
     gap: 10,
@@ -790,11 +780,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   outcomeName: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 13,
   },
   outcomeCount: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 13,
   },
   outcomeBarTrack: {
@@ -822,27 +812,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   salesmanInitials: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.semibold,
     fontSize: 14,
-    fontWeight: '600',
   },
   salesmanMeta: {
     flex: 1,
     gap: 2,
   },
   salesmanTitle: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.medium,
     fontSize: 15,
-    fontWeight: '500',
   },
   salesmanSubText: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 12,
   },
   salesmanValue: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.semibold,
     fontSize: 15,
-    fontWeight: '600',
   },
   voicePlayerRow: {
     flexDirection: 'row',
@@ -862,11 +849,11 @@ const styles = StyleSheet.create({
     height: 36,
   },
   durationText: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 13,
   },
   aiSummaryText: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 14,
     lineHeight: 20,
     marginTop: 14,
@@ -892,9 +879,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalTitle: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.semibold,
     fontSize: 18,
-    fontWeight: '600',
   },
 });
 

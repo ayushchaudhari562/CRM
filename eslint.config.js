@@ -7,7 +7,7 @@ module.exports = defineConfig([
   expoConfig,
   prettierConfig, // turns off style rules that Prettier handles
   {
-    ignores: ['dist/*', 'node_modules/*', '.expo/*', 'design-reference/*'],
+    ignores: ['dist/*', 'node_modules/*', '.expo/*', 'design-reference/*', 'backend/*'],
   },
   {
     files: ['**/*.ts', '**/*.tsx'],

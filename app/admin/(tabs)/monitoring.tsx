@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, Pressable, TextInput } from 'react-
 import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { ChevronLeft, Search, X } from 'lucide-react-native';
-import { useTheme } from '../../../src/theme';
+import { useTheme, fonts } from '../../../src/theme';
 import { LoadingView, ErrorView } from '../../../src/components';
 import { crmService } from '../../../src/services';
 import type { SalesmanProgress } from '../../../src/types';
@@ -151,7 +151,7 @@ export default function AdminLiveMonitoringScreen() {
           {filteredSalesmen.map((s) => (
             <Pressable
               key={s.id}
-              onPress={() => router.push(`/(admin)/report/m-3`)}
+              onPress={() => router.push(`/admin/report/m-3`)}
               style={({ pressed }) => [
                 styles.salesmanItem,
                 { opacity: pressed ? 0.8 : 1 },
@@ -212,7 +212,7 @@ const styles = StyleSheet.create({
   },
   backText: {
     flex: 1,
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 15,
   },
   searchBarWrapper: {
@@ -224,7 +224,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
     paddingHorizontal: 14,
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 14,
   },
   headingBlock: {
@@ -233,12 +233,11 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   title: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.semibold,
     fontSize: 30,
-    fontWeight: '600',
   },
   subtitle: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 13,
   },
   segmentedBarWrapper: {
@@ -261,9 +260,8 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   cardTitle: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.semibold,
     fontSize: 18,
-    fontWeight: '600',
   },
   statusRow: {
     flexDirection: 'row',
@@ -277,17 +275,17 @@ const styles = StyleSheet.create({
   },
   statusLabel: {
     flex: 1,
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 15,
   },
   statusFraction: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 15,
   },
   statusPercent: {
     width: 44,
     textAlign: 'right',
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 15,
   },
   salesmenList: {
@@ -306,27 +304,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarText: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.semibold,
     fontSize: 14,
-    fontWeight: '600',
   },
   salesmanInfo: {
     flex: 1,
     gap: 2,
   },
   salesmanName: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.medium,
     fontSize: 15,
-    fontWeight: '500',
   },
   salesmanSub: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 12,
   },
   salesmanAmount: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.semibold,
     fontSize: 15,
-    fontWeight: '600',
   },
 });
 

@@ -12,7 +12,7 @@ import { useRouter } from 'expo-router';
 import { ChevronLeft, Check, Camera } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
-import { useTheme } from '../../src/theme';
+import { useTheme, fonts } from '../../src/theme';
 import { Button, Card, MapCard } from '../../src/components';
 import { useAppStore } from '../../src/store';
 
@@ -223,7 +223,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   barTitle: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 15,
   },
   scrollContent: {
@@ -237,12 +237,11 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   title: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.semibold,
     fontSize: 30,
-    fontWeight: '600',
   },
   subtitle: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 13,
     marginTop: 4,
   },
@@ -264,7 +263,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   checkText: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 15,
   },
   selfieCard: {
@@ -293,9 +292,8 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   selfieTitle: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.semibold,
     fontSize: 15,
-    fontWeight: '600',
   },
   spacer: {
     flex: 1,

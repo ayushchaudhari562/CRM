@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, FlatList } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { Clock } from 'lucide-react-native';
-import { useTheme } from '../../../src/theme';
+import { useTheme, fonts } from '../../../src/theme';
 import { Chip, LoadingView, EmptyView, ErrorView } from '../../../src/components';
 import { crmService } from '../../../src/services';
 import { useAppStore } from '../../../src/store';
@@ -174,12 +174,11 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   title: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.semibold,
     fontSize: 26,
-    fontWeight: '600',
   },
   subtitle: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 13,
     marginTop: 2,
   },
@@ -210,12 +209,11 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   clientName: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.semibold,
     fontSize: 16,
-    fontWeight: '600',
   },
   businessType: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 13,
   },
   outcomeBadge: {
@@ -224,9 +222,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   outcomeText: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.semibold,
     fontSize: 12,
-    fontWeight: '600',
   },
   cardFooter: {
     flexDirection: 'row',
@@ -242,13 +239,12 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   footerText: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 12,
   },
   dealValueText: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.semibold,
     fontSize: 13,
-    fontWeight: '600',
   },
 });
 

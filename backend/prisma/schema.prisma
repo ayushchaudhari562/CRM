@@ -1,0 +1,221 @@
+// Sales Visit CRM - database schema (MVP only).
+// Not in MVP (do not add yet): orders, payments, route plans, leaderboard, fake-GPS detection, card scan, exports.
+//
+// Conventions:
+// - ids are cuid strings (safe to create on the phone for the offline queue).
+// - all times are stored in UTC (timestamptz).
+// - money is Decimal(12,2) in INR (never Float).
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  // URL lives in prisma.config.ts (Prisma 7).
+}
+
+// ---------- Enums ----------
+
+enum Role {
+  SALESMAN
+  ADMIN
+}
+
+enum MeetingOutcome {
+  INTERESTED
+  CLOSED
+  NOT_INTERESTED
+}
+
+enum AttachmentType {
+  PHOTO
+  FILE
+}
+
+enum FollowUpType {
+  VISIT
+  CALL
+}
+
+// "Overdue" is not stored: it is status = PENDING and dueAt < now().
+enum FollowUpStatus {
+  PENDING
+  DONE
+  CANCELLED
+}
+
+// ---------- People ----------
+
+model User {
+  id         String   @id @default(cuid())
+  // Supabase Auth user id (auth.users.id). Set after the first OTP login.
+  authUserId String?  @unique @db.Uuid
+  name       String
+  phone      String   @unique // E.164, e.g. +919876543210. Used for OTP login.
+  employeeId String?  @unique
+  role       Role     @default(SALESMAN)
+  isActive   Boolean  @default(true) // deactivate instead of delete, to keep history
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt  DateTime @updatedAt @db.Timestamptz(3)
+
+  clients       Client[]
+  meetings      Meeting[]
+  followUps     FollowUp[]
+  attendance    Attendance[]
+  targets       Target[]
+  locationPings LocationPing[]
+}
+
+// ---------- Clients ----------
+
+// A client (shop/business) belongs to one salesman. A salesman sees only their own clients.
+model Client {
+  id            String   @id @default(cuid())
+  salesmanId    String
+  name          String
+  businessType  String
+  contactNumber String?
+  address       String?
+  latitude      Float?
+  longitude     Float?
+  createdAt     DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime @updatedAt @db.Timestamptz(3)
+
+  salesman  User       @relation(fields: [salesmanId], references: [id], onDelete: Restrict)
+  meetings  Meeting[]
+  followUps FollowUp[]
+
+  @@index([salesmanId, name])
+}
+
+model Product {
+  id       String    @id @default(cuid())
+  name     String    @unique
+  isActive Boolean   @default(true)
+  meetings Meeting[] // implicit many-to-many
+}
+
+// ---------- Visits ----------
+
+// One visit to a client: check-in (selfie + GPS + time) -> form -> check-out.
+model Meeting {
+  id              String @id @default(cuid())
+  // Set by the phone when the visit is created offline. Same id sent twice = same meeting (no duplicates on sync).
+  clientRequestId String @unique
+  salesmanId      String
+  clientId        String
+
+  // Check-in
+  checkInAt       DateTime  @db.Timestamptz(3)
+  checkInLat      Float? // null when GPS permission was denied
+  checkInLng      Float?
+  checkInAccuracy Float? // metres
+  selfieUrl       String? // storage path, not a public URL
+  checkOutAt      DateTime? @db.Timestamptz(3)
+
+  // Form
+  outcome          MeetingOutcome
+  dealValue        Decimal        @default(0) @db.Decimal(12, 2)
+  note             String? // typed note
+  voiceNoteUrl     String?
+  voiceNoteSeconds Int?
+  aiSummary        String? // placeholder now, filled by an LLM job later
+  nextVisitAt      DateTime?      @db.Timestamptz(3)
+  whatsappReminder Boolean        @default(false)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3) // when the server received it
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  salesman    User         @relation(fields: [salesmanId], references: [id], onDelete: Restrict)
+  client      Client       @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  products    Product[]
+  attachments Attachment[]
+  followUps   FollowUp[]
+
+  @@index([salesmanId, checkInAt])
+  @@index([clientId, checkInAt])
+  @@index([checkInAt])
+}
+
+model Attachment {
+  id        String         @id @default(cuid())
+  meetingId String
+  type      AttachmentType
+  url       String // storage path
+  name      String
+  sizeBytes Int
+  createdAt DateTime       @default(now()) @db.Timestamptz(3)
+
+  meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+
+  @@index([meetingId])
+}
+
+// ---------- Follow-ups ----------
+
+model FollowUp {
+  id             String         @id @default(cuid())
+  salesmanId     String
+  clientId       String
+  meetingId      String? // the visit that created it (null if added by hand)
+  type           FollowUpType   @default(VISIT)
+  dueAt          DateTime       @db.Timestamptz(3)
+  status         FollowUpStatus @default(PENDING)
+  whatsappSentAt DateTime?      @db.Timestamptz(3) // set by the reminder job later
+  createdAt      DateTime       @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime       @updatedAt @db.Timestamptz(3)
+
+  salesman User     @relation(fields: [salesmanId], references: [id], onDelete: Restrict)
+  client   Client   @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  meeting  Meeting? @relation(fields: [meetingId], references: [id], onDelete: SetNull)
+
+  @@index([salesmanId, status, dueAt]) // "due today" and "overdue" lists
+  @@index([status, dueAt])
+}
+
+// ---------- Field tracking ----------
+
+// Punch in / punch out for a working day.
+model Attendance {
+  id          String    @id @default(cuid())
+  salesmanId  String
+  punchInAt   DateTime  @db.Timestamptz(3)
+  punchInLat  Float?
+  punchInLng  Float?
+  punchOutAt  DateTime? @db.Timestamptz(3)
+  punchOutLat Float?
+  punchOutLng Float?
+
+  salesman User @relation(fields: [salesmanId], references: [id], onDelete: Restrict)
+
+  @@index([salesmanId, punchInAt])
+}
+
+// Last known position, for the admin live monitoring screen. Only sent while punched in.
+model LocationPing {
+  id         String   @id @default(cuid())
+  salesmanId String
+  latitude   Float
+  longitude  Float
+  accuracy   Float?
+  recordedAt DateTime @db.Timestamptz(3)
+
+  salesman User @relation(fields: [salesmanId], references: [id], onDelete: Cascade)
+
+  @@index([salesmanId, recordedAt])
+}
+
+// Daily target per salesman.
+model Target {
+  id              String   @id @default(cuid())
+  salesmanId      String
+  date            DateTime @db.Date
+  visitsTarget    Int
+  dealValueTarget Decimal? @db.Decimal(12, 2)
+
+  salesman User @relation(fields: [salesmanId], references: [id], onDelete: Cascade)
+
+  @@unique([salesmanId, date])
+}

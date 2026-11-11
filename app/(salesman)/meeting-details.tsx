@@ -13,7 +13,7 @@ import { ChevronLeft, Mic, Check, Paperclip, FileText, X } from 'lucide-react-na
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { z } from 'zod';
-import { useTheme } from '../../src/theme';
+import { useTheme, fonts } from '../../src/theme';
 import {
   Button,
   Field,
@@ -519,7 +519,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   barTitle: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 15,
   },
   scrollContent: {
@@ -533,7 +533,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   existingFoundText: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 13,
     marginTop: 2,
   },
@@ -550,19 +550,18 @@ const styles = StyleSheet.create({
     borderBottomColor: '#2A2B2E',
   },
   suggestionName: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.medium,
     fontSize: 14,
-    fontWeight: '500',
   },
   suggestionSub: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 12,
   },
   sectionBlock: {
     gap: 8,
   },
   sectionLabel: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 13,
   },
   chipsRow: {
@@ -571,7 +570,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   errorText: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 12,
     marginTop: 4,
   },
@@ -589,12 +588,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   recordText: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.semibold,
     fontSize: 15,
-    fontWeight: '600',
   },
   summaryHint: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 13,
     textAlign: 'center',
   },
@@ -613,7 +611,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   whatsappText: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 15,
   },
   attachmentsList: {
@@ -629,7 +627,7 @@ const styles = StyleSheet.create({
   },
   attachmentName: {
     flex: 1,
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 13,
   },
   spacer: {

@@ -4,7 +4,7 @@ import { useRouter, usePathname, type Href } from 'expo-router';
 import { Sliders, Wifi, WifiOff } from 'lucide-react-native';
 import { useAppStore } from '../store';
 import type { Role } from '../types';
-import { useTheme } from '../theme';
+import { useTheme, fonts } from '../theme';
 
 export const DevBar: React.FC = () => {
   const router = useRouter();
@@ -20,10 +20,10 @@ export const DevBar: React.FC = () => {
     { label: '04 Details', path: '/(salesman)/meeting-details' as Href, role: 'salesman' as const },
     { label: '05 Saved', path: '/(salesman)/meeting-saved' as Href, role: 'salesman' as const },
     { label: 'Visits List', path: '/(salesman)/(tabs)/visits' as Href, role: 'salesman' as const },
-    { label: '06 Admin Home', path: '/(admin)/(tabs)' as Href, role: 'admin' as const },
-    { label: '07 Live Mon', path: '/(admin)/(tabs)/monitoring' as Href, role: 'admin' as const },
-    { label: '08 Report', path: '/(admin)/report/m-3' as Href, role: 'admin' as const },
-    { label: '09 Web Bento', path: '/(admin)/bento' as Href, role: 'admin' as const, isRed: true },
+    { label: '06 Admin Home', path: '/admin' as Href, role: 'admin' as const },
+    { label: '07 Live Mon', path: '/admin/monitoring' as Href, role: 'admin' as const },
+    { label: '08 Report', path: '/admin/report/m-3' as Href, role: 'admin' as const },
+    { label: '09 Web Bento', path: '/admin/bento' as Href, role: 'admin' as const, isRed: true },
   ];
 
   // Dev only: fake a login as `nextRole`, then open `path`.
@@ -78,13 +78,10 @@ export const DevBar: React.FC = () => {
           </Pressable>
 
           <Pressable
-            onPress={() => openAs('admin', '/(admin)/(tabs)')}
+            onPress={() => openAs('admin', '/admin')}
             accessibilityRole="button"
             accessibilityLabel="Switch to Admin role"
-            style={[
-              styles.roleBtn,
-              role === 'admin' && { backgroundColor: theme.colors.accent },
-            ]}
+            style={[styles.roleBtn, role === 'admin' && { backgroundColor: theme.colors.accent }]}
           >
             <Text
               style={[
@@ -187,9 +184,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
   },
   barTitle: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.semibold,
     fontSize: 12,
-    fontWeight: '600',
   },
   roleSwitch: {
     flexDirection: 'row',
@@ -203,9 +199,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   roleText: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.semibold,
     fontSize: 12,
-    fontWeight: '600',
   },
   offlineBtn: {
     width: 32,
@@ -221,9 +216,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   drawerTitle: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.semibold,
     fontSize: 11,
-    fontWeight: '600',
     letterSpacing: 0.5,
   },
   chipsScroll: {
@@ -236,9 +230,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   chipText: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.medium,
     fontSize: 12,
-    fontWeight: '500',
   },
 });
-

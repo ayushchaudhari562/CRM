@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Svg, { Path, Circle, Rect, Text as SvgText } from 'react-native-svg';
-import { useTheme } from '../theme';
+import { useTheme, fonts } from '../theme';
 
 export interface LineChartProps {
   timeLabels?: string[];
@@ -56,9 +56,8 @@ export const LineChart: React.FC<LineChartProps> = ({
           x="200"
           y="22"
           textAnchor="middle"
-          fontFamily="Inter"
+          fontFamily={fonts.medium}
           fontSize="12"
-          fontWeight="500"
           fill={theme.colors.text}
         >
           {currentTime}
@@ -87,8 +86,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   timeLabel: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 13,
   },
 });
-

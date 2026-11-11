@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Check } from 'lucide-react-native';
-import { useTheme } from '../../src/theme';
+import { useTheme, fonts } from '../../src/theme';
 import { Button, Card } from '../../src/components';
 import { useAppStore } from '../../src/store';
 
@@ -135,13 +135,12 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   title: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.semibold,
     fontSize: 30,
-    fontWeight: '600',
     textAlign: 'center',
   },
   subtitle: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 14,
     textAlign: 'center',
   },
@@ -165,7 +164,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   actionText: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 15,
   },
   spacer: {

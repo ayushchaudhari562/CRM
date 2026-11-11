@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Platform, KeyboardAvoidingView, ScrollView } from 'react-native';
-import { useRouter } from 'expo-router';
 import { MapPin, Check } from 'lucide-react-native';
-import { useTheme } from '../src/theme';
+import { useTheme, fonts } from '../src/theme';
 import { Button, Field, SegmentedControl } from '../src/components';
 import { useAppStore } from '../src/store';
 import { APP_NAME, adminUser, currentUser } from '../src/mocks/data';
@@ -15,7 +14,6 @@ const ROLE_OPTIONS: { value: Role; label: string }[] = [
 
 export default function LoginScreen() {
   const { theme } = useTheme();
-  const router = useRouter();
   const { login } = useAppStore();
 
   const [loginAs, setLoginAs] = useState<Role>('salesman');
@@ -42,9 +40,7 @@ export default function LoginScreen() {
     setError('');
     // MOCK: the chosen tab decides the role. With a real backend, the server must
     // return the user (and role) for this phone number after OTP check.
-    login(loginAs === 'admin' ? adminUser : currentUser);
-    // '/' redirects by role after re-render, once the route guard allows it.
-    router.replace('/');
+    login(loginAs === 'admin' ? adminUser : currentUser); // route guard then opens the right home
   };
 
   return (
@@ -189,20 +185,19 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   title: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.semibold,
     fontSize: 30,
-    fontWeight: '600',
     lineHeight: 35,
   },
   subtitle: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 14,
   },
   form: {
     gap: 16,
   },
   hint: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 13,
     textAlign: 'center',
   },
@@ -221,12 +216,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   installTitle: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.semibold,
     fontSize: 15,
-    fontWeight: '600',
   },
   installSub: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 13,
     marginTop: 2,
   },

@@ -13,4 +13,3 @@ export * from './StateViews';
 export * from './OfflineBanner';
 export * from './DevBar';
 export * from './BottomTabBar';
-

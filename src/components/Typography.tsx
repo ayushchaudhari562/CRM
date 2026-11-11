@@ -1,6 +1,6 @@
 import React from 'react';
 import { Text, TextProps, StyleSheet } from 'react-native';
-import { useTheme } from '../theme';
+import { useTheme, fonts } from '../theme';
 
 interface CustomTextProps extends TextProps {
   color?: string;
@@ -54,7 +54,7 @@ export const Body: React.FC<CustomTextProps & { weight?: '400' | '500' | '600' }
         styles.body,
         {
           color: color ?? theme.colors.text,
-          fontWeight: weight,
+          fontFamily: WEIGHT_FONT[weight],
           textAlign: center ? 'center' : 'left',
         },
         style,
@@ -82,7 +82,13 @@ export const Label: React.FC<CustomTextProps> = ({ style, children, color, cente
   );
 };
 
-export const Caption: React.FC<CustomTextProps> = ({ style, children, color, center, ...props }) => {
+export const Caption: React.FC<CustomTextProps> = ({
+  style,
+  children,
+  color,
+  center,
+  ...props
+}) => {
   const { theme } = useTheme();
   return (
     <Text
@@ -98,33 +104,32 @@ export const Caption: React.FC<CustomTextProps> = ({ style, children, color, cen
   );
 };
 
+const WEIGHT_FONT = { '400': fonts.regular, '500': fonts.medium, '600': fonts.semibold } as const;
+
 const styles = StyleSheet.create({
   h1: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.semibold,
     fontSize: 30,
-    fontWeight: '600',
     lineHeight: 35,
   },
   title: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.semibold,
     fontSize: 18,
-    fontWeight: '600',
     lineHeight: 22,
   },
   body: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 15,
     lineHeight: 20,
   },
   label: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 13,
     lineHeight: 18,
   },
   caption: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 12,
     lineHeight: 16,
   },
 });
-

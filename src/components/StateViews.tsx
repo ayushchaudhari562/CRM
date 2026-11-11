@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, ActivityIndicator, StyleSheet, ViewStyle } from 'react-native';
 import { AlertCircle, Inbox } from 'lucide-react-native';
-import { useTheme } from '../theme';
+import { useTheme, fonts } from '../theme';
 import { Button } from './Button';
 
 export interface LoadingViewProps {
@@ -9,10 +9,7 @@ export interface LoadingViewProps {
   style?: ViewStyle;
 }
 
-export const LoadingView: React.FC<LoadingViewProps> = ({
-  message = 'Loading data...',
-  style,
-}) => {
+export const LoadingView: React.FC<LoadingViewProps> = ({ message = 'Loading data...', style }) => {
   const { theme } = useTheme();
   return (
     <View style={[styles.center, style]}>
@@ -122,22 +119,20 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   title: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.semibold,
     fontSize: 17,
-    fontWeight: '600',
     textAlign: 'center',
     marginBottom: 6,
   },
   description: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 14,
     textAlign: 'center',
     lineHeight: 20,
     maxWidth: 280,
   },
   text: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 14,
   },
 });
-

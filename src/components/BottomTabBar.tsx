@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
-import { useTheme } from '../theme';
+import { useTheme, fonts } from '../theme';
 
 export interface TabItem {
   id: string;
@@ -14,11 +14,7 @@ export interface BottomTabBarProps {
   onTabPress: (id: string) => void;
 }
 
-export const BottomTabBar: React.FC<BottomTabBarProps> = ({
-  tabs,
-  activeTab,
-  onTabPress,
-}) => {
+export const BottomTabBar: React.FC<BottomTabBarProps> = ({ tabs, activeTab, onTabPress }) => {
   const { theme } = useTheme();
 
   return (
@@ -26,7 +22,7 @@ export const BottomTabBar: React.FC<BottomTabBarProps> = ({
       style={[
         styles.bar,
         {
-          backgroundColor: '#111213',
+          backgroundColor: theme.colors.tabBar,
           borderTopColor: theme.colors.border,
         },
       ]}
@@ -69,9 +65,7 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   tabLabel: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.medium,
     fontSize: 12,
-    fontWeight: '500',
   },
 });
-

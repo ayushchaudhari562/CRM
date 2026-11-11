@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { FileText, ChevronRight, TrendingUp } from 'lucide-react-native';
-import { useTheme } from '../../../src/theme';
+import { useTheme, fonts } from '../../../src/theme';
 import { Card, Button } from '../../../src/components';
 import { meetings } from '../../../src/mocks/data';
 
@@ -33,7 +33,7 @@ export default function AdminReportsTabScreen() {
         </Text>
         <Button
           title="Open detailed report"
-          onPress={() => router.push('/(admin)/report/m-3')}
+          onPress={() => router.push('/admin/report/m-3')}
           variant="primary"
           size="compact"
           style={{ marginTop: 8 }}
@@ -62,7 +62,7 @@ export default function AdminReportsTabScreen() {
               </View>
               <Button
                 title="View"
-                onPress={() => router.push(`/(admin)/report/${m.id}`)}
+                onPress={() => router.push(`/admin/report/${m.id}`)}
                 variant="outline"
                 size="small"
                 fullWidth={false}
@@ -90,12 +90,11 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   title: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.semibold,
     fontSize: 26,
-    fontWeight: '600',
   },
   subtitle: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 13,
   },
   heroReportCard: {
@@ -103,19 +102,17 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   reportCardTitle: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.semibold,
     fontSize: 17,
-    fontWeight: '600',
   },
   reportCardSub: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 13,
     lineHeight: 18,
   },
   sectionHeading: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.semibold,
     fontSize: 11,
-    fontWeight: '600',
     letterSpacing: 0.5,
     marginTop: 8,
   },
@@ -135,12 +132,11 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   clientName: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.semibold,
     fontSize: 15,
-    fontWeight: '600',
   },
   subText: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 12,
   },
 });

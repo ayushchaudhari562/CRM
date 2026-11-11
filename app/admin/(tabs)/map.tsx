@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { useTheme } from '../../../src/theme';
+import { useTheme, fonts } from '../../../src/theme';
 import { MapCard, Card } from '../../../src/components';
 
 export default function AdminMapScreen() {
@@ -49,12 +49,11 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   title: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.semibold,
     fontSize: 26,
-    fontWeight: '600',
   },
   subtitle: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 13,
   },
   mapWrapper: {
@@ -65,12 +64,11 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   infoTitle: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.semibold,
     fontSize: 16,
-    fontWeight: '600',
   },
   infoSub: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 13,
     lineHeight: 18,
   },

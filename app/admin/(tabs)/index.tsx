@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, Modal } from 'react-native';
-import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { X, LogOut } from 'lucide-react-native';
-import { useTheme } from '../../../src/theme';
+import { useTheme, fonts } from '../../../src/theme';
 import { TickRing, Button, Field, LoadingView, ErrorView } from '../../../src/components';
 import { crmService } from '../../../src/services';
 import type { AdminOverview } from '../../../src/types';
@@ -11,7 +10,6 @@ import { useAppStore } from '../../../src/store';
 
 export default function AdminHomeScreen() {
   const { theme } = useTheme();
-  const router = useRouter();
   const { logout } = useAppStore();
   const [showAddModal, setShowAddModal] = useState(false);
   const [newSalesmanName, setNewSalesmanName] = useState('');
@@ -62,10 +60,7 @@ export default function AdminHomeScreen() {
               <Text style={[styles.addBtnText, { color: theme.colors.text }]}>+ Add salesman</Text>
             </Pressable>
             <Pressable
-              onPress={() => {
-                logout();
-                router.replace('/'); // '/' redirects to /login
-              }}
+              onPress={logout} // route guard sends the user back to login
               accessibilityRole="button"
               accessibilityLabel="Sign out"
               style={[styles.iconBtn, { borderColor: theme.colors.border }]}
@@ -154,7 +149,7 @@ export default function AdminHomeScreen() {
           >
             <Text style={[styles.outcomeLabel, { color: theme.colors.text }]}>
               Interested{' '}
-              <Text style={{ color: theme.colors.accent, fontWeight: '600' }}>
+              <Text style={{ color: theme.colors.accent, fontFamily: fonts.semibold }}>
                 {overview.outcomes.interested}
               </Text>
             </Text>
@@ -171,7 +166,7 @@ export default function AdminHomeScreen() {
           >
             <Text style={[styles.outcomeLabel, { color: theme.colors.text }]}>
               Closed{' '}
-              <Text style={{ color: theme.colors.accent, fontWeight: '600' }}>
+              <Text style={{ color: theme.colors.accent, fontFamily: fonts.semibold }}>
                 {overview.outcomes.closed}
               </Text>
             </Text>
@@ -188,7 +183,7 @@ export default function AdminHomeScreen() {
           >
             <Text style={[styles.outcomeLabel, { color: theme.colors.text }]}>
               Not interested{' '}
-              <Text style={{ color: theme.colors.accent, fontWeight: '600' }}>
+              <Text style={{ color: theme.colors.accent, fontFamily: fonts.semibold }}>
                 {overview.outcomes.notInterested}
               </Text>
             </Text>
@@ -269,7 +264,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   dateText: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 14,
   },
   topActions: {
@@ -293,22 +288,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   addBtnText: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.medium,
     fontSize: 14,
-    fontWeight: '500',
   },
   headingBlock: {
     paddingTop: 16,
     gap: 6,
   },
   heading: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.semibold,
     fontSize: 30,
-    fontWeight: '600',
     lineHeight: 35,
   },
   salesmanCount: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 13,
   },
   ringWrapper: {
@@ -323,9 +316,8 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   sheetTitle: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.semibold,
     fontSize: 20,
-    fontWeight: '600',
   },
   metricsRow: {
     flexDirection: 'row',
@@ -338,9 +330,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   metricNumber: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.semibold,
     fontSize: 36,
-    fontWeight: '600',
     lineHeight: 40,
   },
   metricSubRow: {
@@ -349,13 +340,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   metricSubText: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 13,
   },
   metricHighlight: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.semibold,
     fontSize: 13,
-    fontWeight: '600',
   },
   outcomesRow: {
     flexDirection: 'row',
@@ -369,7 +359,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   outcomeLabel: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 14,
   },
   modalOverlay: {
@@ -390,8 +380,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalTitle: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.semibold,
     fontSize: 18,
-    fontWeight: '600',
   },
 });

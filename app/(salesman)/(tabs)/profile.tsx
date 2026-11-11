@@ -1,21 +1,14 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { useRouter } from 'expo-router';
 import { Phone, LogOut } from 'lucide-react-native';
-import { useTheme } from '../../../src/theme';
+import { useTheme, fonts } from '../../../src/theme';
 import { useAppStore } from '../../../src/store';
 import { Card, Button } from '../../../src/components';
 
 export default function SalesmanProfileTab() {
   const { theme } = useTheme();
-  const router = useRouter();
   const { user, isPunchedIn, punchInTime, togglePunchIn, logout } = useAppStore();
 
-  // Go to '/' (not guarded). It re-renders with the new state and redirects to /login.
-  const handleLogout = () => {
-    logout();
-    router.replace('/');
-  };
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.bg }]}>
@@ -68,7 +61,7 @@ export default function SalesmanProfileTab() {
 
       <Button
         title="Sign Out"
-        onPress={handleLogout}
+        onPress={logout}
         variant="outline"
         size="compact"
         icon={<LogOut size={16} color={theme.colors.muted} />}
@@ -89,9 +82,8 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   title: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.semibold,
     fontSize: 26,
-    fontWeight: '600',
   },
   userCard: {
     flexDirection: 'row',
@@ -107,23 +99,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarText: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.semibold,
     fontSize: 20,
-    fontWeight: '600',
   },
   userInfo: {
     flex: 1,
     gap: 4,
   },
   userName: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.semibold,
     fontSize: 17,
-    fontWeight: '600',
   },
   userRole: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.medium,
     fontSize: 13,
-    fontWeight: '500',
   },
   phoneRow: {
     flexDirection: 'row',
@@ -132,7 +121,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   userPhone: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 12,
   },
   attendanceCard: {
@@ -142,12 +131,11 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   sectionTitle: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.semibold,
     fontSize: 16,
-    fontWeight: '600',
   },
   sectionSub: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 13,
   },
 });

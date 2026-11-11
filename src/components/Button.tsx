@@ -8,15 +8,16 @@ import {
   TextStyle,
   View,
 } from 'react-native';
-import { useTheme } from '../theme';
+import { useTheme, fonts, type Theme } from '../theme';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'white' | 'danger';
+export type ButtonSize = 'hero' | 'normal' | 'compact' | 'small';
 
 export interface ButtonProps {
   title: string;
   onPress?: () => void;
   variant?: ButtonVariant;
-  size?: 'normal' | 'hero' | 'compact' | 'small';
+  size?: ButtonSize;
   disabled?: boolean;
   loading?: boolean;
   icon?: React.ReactNode;
@@ -25,6 +26,26 @@ export interface ButtonProps {
   textStyle?: TextStyle;
   accessibilityLabel?: string;
   fullWidth?: boolean;
+}
+
+// Heights from PROMPT.md: 60 main CTA, 52 normal. All sizes stay >= 44 (min touch target).
+const HEIGHT: Record<ButtonSize, number> = { hero: 60, normal: 52, compact: 48, small: 44 };
+const FONT_SIZE: Record<ButtonSize, number> = { hero: 17, normal: 16, compact: 16, small: 14 };
+
+function variantColors(variant: ButtonVariant, c: Theme['colors']) {
+  switch (variant) {
+    case 'secondary':
+      return { bg: c.surface2, text: c.text, border: c.border };
+    case 'outline':
+      return { bg: 'transparent', text: c.text, border: c.border };
+    case 'white':
+      return { bg: c.text, text: c.bg, border: undefined };
+    case 'danger':
+      return { bg: c.adminRed, text: c.onDanger, border: undefined };
+    case 'primary':
+    default:
+      return { bg: c.accent, text: c.onAccent, border: undefined };
+  }
 }
 
 export const Button: React.FC<ButtonProps> = ({
@@ -42,67 +63,25 @@ export const Button: React.FC<ButtonProps> = ({
   fullWidth = true,
 }) => {
   const { theme } = useTheme();
-
-  const getHeight = () => {
-    switch (size) {
-      case 'hero':
-        return 60;
-      case 'compact':
-        return 48;
-      case 'small':
-        return 44;
-      case 'normal':
-      default:
-        return 52;
-    }
-  };
-
-  const height = getHeight();
-  const borderRadius = height / 2;
-
-  let bg = theme.colors.accent;
-  let textColor = theme.colors.onAccent;
-  let borderColor = 'transparent';
-  let borderWidth = 0;
-
-  if (variant === 'primary') {
-    bg = theme.colors.accent;
-    textColor = theme.colors.onAccent;
-  } else if (variant === 'secondary') {
-    bg = theme.colors.surface2;
-    textColor = theme.colors.text;
-    borderColor = theme.colors.border;
-    borderWidth = 1;
-  } else if (variant === 'outline') {
-    bg = 'transparent';
-    textColor = theme.colors.text;
-    borderColor = theme.colors.border;
-    borderWidth = 1;
-  } else if (variant === 'white') {
-    bg = theme.colors.text;
-    textColor = theme.colors.bg;
-  } else if (variant === 'danger') {
-    bg = theme.colors.adminRed;
-    textColor = '#FFFFFF';
-  }
-
-  const fontSize = size === 'hero' ? 17 : size === 'small' ? 14 : 16;
-  const fontWeight = size === 'hero' ? '600' : '600';
+  const height = HEIGHT[size];
+  const colors = variantColors(variant, theme.colors);
+  const isDisabled = disabled || loading;
 
   return (
     <Pressable
       onPress={onPress}
-      disabled={disabled || loading}
+      disabled={isDisabled}
       accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel || title}
+      accessibilityLabel={accessibilityLabel ?? title}
+      accessibilityState={{ disabled: isDisabled, busy: loading }}
       style={({ pressed }) => [
         styles.button,
         {
           height,
-          borderRadius,
-          backgroundColor: bg,
-          borderColor,
-          borderWidth,
+          borderRadius: height / 2, // pill
+          backgroundColor: colors.bg,
+          borderColor: colors.border,
+          borderWidth: colors.border ? 1 : 0,
           opacity: disabled ? 0.45 : pressed ? 0.85 : 1,
           alignSelf: fullWidth ? 'stretch' : 'flex-start',
           paddingHorizontal: fullWidth ? 16 : 20,
@@ -111,24 +90,14 @@ export const Button: React.FC<ButtonProps> = ({
       ]}
     >
       {loading ? (
-        <ActivityIndicator color={textColor} size="small" />
+        <ActivityIndicator color={colors.text} size="small" />
       ) : (
         <View style={styles.content}>
-          {icon ? <View style={styles.iconWrapper}>{icon}</View> : null}
-          <Text
-            style={[
-              styles.text,
-              {
-                color: textColor,
-                fontSize,
-                fontWeight,
-              },
-              textStyle,
-            ]}
-          >
+          {icon}
+          <Text style={[styles.text, { color: colors.text, fontSize: FONT_SIZE[size] }, textStyle]}>
             {title}
           </Text>
-          {rightIcon ? <View style={styles.rightIconWrapper}>{rightIcon}</View> : null}
+          {rightIcon}
         </View>
       )}
     </Pressable>
@@ -137,28 +106,16 @@ export const Button: React.FC<ButtonProps> = ({
 
 const styles = StyleSheet.create({
   button: {
-    minHeight: 44,
     justifyContent: 'center',
     alignItems: 'center',
-    flexDirection: 'row',
   },
   content: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
     gap: 8,
   },
-  iconWrapper: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  rightIconWrapper: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   text: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.semibold,
     letterSpacing: 0.1,
   },
 });
-

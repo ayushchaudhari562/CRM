@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, Alert } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ChevronLeft, FileDown, Check } from 'lucide-react-native';
-import { useTheme } from '../../../src/theme';
+import { useTheme, fonts } from '../../../src/theme';
 import {
   LineChart,
   Timeline,
@@ -208,7 +208,7 @@ const styles = StyleSheet.create({
   },
   backText: {
     flex: 1,
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 15,
   },
   salesmanHeaderBadge: {
@@ -224,20 +224,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarTextSmall: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.semibold,
     fontSize: 13,
-    fontWeight: '600',
   },
   salesmanHeaderText: {
     gap: 1,
   },
   salesmanNameHeader: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.medium,
     fontSize: 13,
-    fontWeight: '500',
   },
   salesmanRoleHeader: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 11,
   },
   scrollContent: {
@@ -250,12 +248,11 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   title: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.semibold,
     fontSize: 30,
-    fontWeight: '600',
   },
   subtitle: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 13,
   },
   chartWrapper: {
@@ -282,22 +279,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   progressText: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.semibold,
     fontSize: 13,
-    fontWeight: '600',
   },
   nextVisitDetails: {
     flex: 1,
     gap: 2,
   },
   nextVisitLabel: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 12,
   },
   nextVisitValue: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.medium,
     fontSize: 15,
-    fontWeight: '500',
   },
   downloadBtn: {
     marginHorizontal: 20,

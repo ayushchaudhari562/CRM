@@ -22,8 +22,7 @@ export const Card: React.FC<CardProps> = ({
       style={[
         styles.card,
         {
-          backgroundColor:
-            surface === 'surface2' ? theme.colors.surface2 : theme.colors.surface,
+          backgroundColor: surface === 'surface2' ? theme.colors.surface2 : theme.colors.surface,
           borderRadius: theme.radius.card,
           borderColor: bordered ? theme.colors.border : 'transparent',
           borderWidth: bordered ? 1 : 0,
@@ -51,8 +50,7 @@ export const Tile: React.FC<CardProps> = ({
       style={[
         styles.tile,
         {
-          backgroundColor:
-            surface === 'surface2' ? theme.colors.surface2 : theme.colors.surface,
+          backgroundColor: surface === 'surface2' ? theme.colors.surface2 : theme.colors.surface,
           borderRadius: theme.radius.tile,
           borderColor: bordered ? theme.colors.border : 'transparent',
           borderWidth: bordered ? 1 : 0,
@@ -76,4 +74,3 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
 });
-

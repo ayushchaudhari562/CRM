@@ -39,10 +39,10 @@ export default function AdminTabsLayout() {
   };
 
   const handleTabPress = (id: string) => {
-    if (id === 'index') router.push('/(admin)/(tabs)');
-    else if (id === 'monitoring') router.push('/(admin)/(tabs)/monitoring');
-    else if (id === 'map') router.push('/(admin)/(tabs)/map');
-    else if (id === 'reports') router.push('/(admin)/(tabs)/reports');
+    if (id === 'index') router.push('/admin');
+    else if (id === 'monitoring') router.push('/admin/monitoring');
+    else if (id === 'map') router.push('/admin/map');
+    else if (id === 'reports') router.push('/admin/reports');
   };
 
   return (
