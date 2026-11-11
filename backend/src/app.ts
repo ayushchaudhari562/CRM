@@ -14,7 +14,7 @@ export function buildApp({ logger = true } = {}) {
     logger: logger && { level: env.isProduction ? 'info' : 'warn' },
     bodyLimit: 100 * 1024, // JSON only; files go straight to storage, never through the API
     requestTimeout: 15_000,
-    trustProxy: env.isProduction, // behind the host's proxy in prod: real client IP for rate limits
+    trustProxy: env.isProduction || !!process.env.RENDER, // behind the host proxy: real client IP for rate limits
     ajv: { customOptions: { removeAdditional: true, coerceTypes: true, useDefaults: true } },
   });
 
@@ -54,6 +54,10 @@ export function buildApp({ logger = true } = {}) {
           error: err.statusCode === 429 ? 'rate_limited' : 'bad_request',
           message: err.message,
         });
+    }
+    // DB not reachable (blocked network, DB down): say so, so the app shows a clear message.
+    if (/timeout exceeded when trying to connect|ECONNREFUSED|ETIMEDOUT|ENOTFOUND|Connection terminated/i.test(err.message)) {
+      return reply.status(503).send({ error: 'db_unavailable', message: 'Server cannot reach the database right now. Please try again.' });
     }
     req.log.error(err);
     return reply

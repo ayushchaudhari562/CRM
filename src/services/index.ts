@@ -28,10 +28,24 @@ import type {
   LocationPingsInput,
   SalesmanLocation,
 } from '../types';
+import Constants from 'expo-constants';
 import { getToken } from './session';
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL;
-if (!API_URL) throw new Error('Missing EXPO_PUBLIC_API_URL in .env');
+/**
+ * On a phone/emulator "localhost" is the phone itself, not the laptop running the API.
+ * In development we swap it for the laptop's address that Expo already uses to load the app
+ * (hostUri, e.g. "192.168.1.5:8081"), so it keeps working when the Wi-Fi / hotspot changes.
+ * Release builds use EXPO_PUBLIC_API_URL as is.
+ */
+function apiUrl(): string {
+  const url = process.env.EXPO_PUBLIC_API_URL;
+  if (!url) throw new Error('Missing EXPO_PUBLIC_API_URL in .env');
+  const devHost = __DEV__ ? Constants.expoConfig?.hostUri?.split(':')[0] : undefined;
+  return devHost && /localhost|127\.0\.0\.1/.test(url)
+    ? url.replace(/localhost|127\.0\.0\.1/, devHost)
+    : url;
+}
+const API_URL = apiUrl();
 
 /** Error with the API's machine code (e.g. "not_registered") and a message safe to show. */
 export class ApiError extends Error {
