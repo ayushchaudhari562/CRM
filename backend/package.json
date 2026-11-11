@@ -1,0 +1,34 @@
+{
+  "name": "crm-backend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Sales Visit CRM backend (database schema for now).",
+  "scripts": {
+    "db:validate": "prisma validate",
+    "db:format": "prisma format",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:studio": "prisma studio",
+    "db:deploy": "prisma migrate deploy",
+    "db:seed": "prisma db seed",
+    "typecheck": "tsc -p .",
+    "dev": "tsx watch src/server.ts",
+    "start": "tsx src/server.ts",
+    "storage:setup": "tsx src/scripts/setupStorage.ts",
+    "test": "tsx --test test/*.test.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "prisma": "^7.10.1",
+    "tsx": "^4.23.15",
+    "typescript": "~6.0.3"
+  },
+  "dependencies": {
+    "@fastify/cors": "^11.4.1",
+    "@fastify/rate-limit": "^10.3.0",
+    "@prisma/adapter-pg": "^7.10.1",
+    "@prisma/client": "^7.10.1",
+    "dotenv": "^18.0.10",
+    "fastify": "^5.12.8"
+  }
+}

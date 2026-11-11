@@ -1,25 +1,25 @@
 import React from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
-import { useRouter } from 'expo-router';
-import { User, Phone, LogOut, CheckCircle2 } from 'lucide-react-native';
-import { useTheme } from '../../../src/theme';
+import { View, Text, StyleSheet } from 'react-native';
+import { Phone, LogOut } from 'lucide-react-native';
+import { useTheme, fonts } from '../../../src/theme';
 import { useAppStore } from '../../../src/store';
 import { Card, Button } from '../../../src/components';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { crmService } from '../../../src/services';
+import { formatTime } from '../../../src/utils/format';
 
 export default function SalesmanProfileTab() {
   const { theme } = useTheme();
-  const router = useRouter();
-  const { user, isPunchedIn, punchInTime, togglePunchIn, setIsLoggedIn, setRole } = useAppStore();
-
-  const handleLogout = () => {
-    setIsLoggedIn(false);
-    router.replace('/(salesman)/login');
-  };
-
-  const handleSwitchToAdmin = () => {
-    setRole('admin');
-    router.push('/(admin)/(tabs)');
-  };
+  const { user, logout } = useAppStore();
+  const qc = useQueryClient();
+  // Punch state lives on the server (same query as the home screen).
+  const { data: home } = useQuery({ queryKey: ['home'], queryFn: crmService.getHome });
+  const punch = useMutation({
+    mutationFn: crmService.togglePunch,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['home'] }),
+  });
+  if (!user) return null; // route guard redirects to login
+  const isPunchedIn = !!home?.punchedInAt;
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.bg }]}>
@@ -30,19 +30,17 @@ export default function SalesmanProfileTab() {
       {/* User Info Card */}
       <Card surface="surface" style={styles.userCard}>
         <View style={[styles.avatar, { backgroundColor: theme.colors.surface2 }]}>
-          <Text style={[styles.avatarText, { color: theme.colors.text }]}>
-            {user.initials}
-          </Text>
+          <Text style={[styles.avatarText, { color: theme.colors.text }]}>{user.initials}</Text>
         </View>
 
         <View style={styles.userInfo}>
           <Text style={[styles.userName, { color: theme.colors.text }]}>{user.name}</Text>
-          <Text style={[styles.userRole, { color: theme.colors.accent }]}>Field Sales Representative</Text>
+          <Text style={[styles.userRole, { color: theme.colors.accent }]}>
+            Field Sales Representative
+          </Text>
           <View style={styles.phoneRow}>
             <Phone size={13} color={theme.colors.muted} />
-            <Text style={[styles.userPhone, { color: theme.colors.muted }]}>
-              {user.phone || '+91 98765 43210'}
-            </Text>
+            <Text style={[styles.userPhone, { color: theme.colors.muted }]}>{user.phone}</Text>
           </View>
         </View>
       </Card>
@@ -50,32 +48,21 @@ export default function SalesmanProfileTab() {
       {/* Attendance / Punch Card */}
       <Card surface="surface" style={styles.attendanceCard}>
         <View style={styles.attendanceHeader}>
-          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-            Daily Attendance
-          </Text>
+          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Daily Attendance</Text>
           <Text style={[styles.sectionSub, { color: theme.colors.muted }]}>
             {isPunchedIn
-              ? `Active shift since ${punchInTime || '09:00 AM'}`
+              ? `Active shift since ${formatTime(home!.punchedInAt!)}`
               : 'Shift not started'}
           </Text>
         </View>
 
         <Button
           title={isPunchedIn ? 'Punch Out' : 'Punch In Now'}
-          onPress={togglePunchIn}
+          onPress={() => punch.mutate()}
+          loading={punch.isPending}
+          disabled={!home}
           variant={isPunchedIn ? 'outline' : 'primary'}
           size="normal"
-        />
-      </Card>
-
-      {/* Dev Switch to Admin */}
-      <Card surface="surface2" style={styles.devCard}>
-        <Text style={[styles.devTitle, { color: theme.colors.muted }]}>DEVELOPER PORTAL</Text>
-        <Button
-          title="Switch to Admin Portal"
-          onPress={handleSwitchToAdmin}
-          variant="secondary"
-          size="compact"
         />
       </Card>
 
@@ -83,7 +70,7 @@ export default function SalesmanProfileTab() {
 
       <Button
         title="Sign Out"
-        onPress={handleLogout}
+        onPress={logout}
         variant="outline"
         size="compact"
         icon={<LogOut size={16} color={theme.colors.muted} />}
@@ -104,9 +91,8 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   title: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.semibold,
     fontSize: 26,
-    fontWeight: '600',
   },
   userCard: {
     flexDirection: 'row',
@@ -122,23 +108,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarText: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.semibold,
     fontSize: 20,
-    fontWeight: '600',
   },
   userInfo: {
     flex: 1,
     gap: 4,
   },
   userName: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.semibold,
     fontSize: 17,
-    fontWeight: '600',
   },
   userRole: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.medium,
     fontSize: 13,
-    fontWeight: '500',
   },
   phoneRow: {
     flexDirection: 'row',
@@ -147,7 +130,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   userPhone: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 12,
   },
   attendanceCard: {
@@ -157,24 +140,11 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   sectionTitle: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.semibold,
     fontSize: 16,
-    fontWeight: '600',
   },
   sectionSub: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 13,
   },
-  devCard: {
-    padding: 16,
-    gap: 10,
-    borderRadius: 18,
-  },
-  devTitle: {
-    fontFamily: 'Inter',
-    fontSize: 11,
-    fontWeight: '600',
-    letterSpacing: 0.5,
-  },
 });
-

@@ -1,106 +1,166 @@
+// All app data comes from our API (backend/). No mock data.
 import type {
   AdminOverview,
+  ApiErrorBody,
+  AppUser,
   Client,
+  ClientDetail,
+  CreateMeetingInput,
+  CreateSalesmanInput,
   Meeting,
-  Reminder,
-  Salesman,
+  Product,
+  SalesmanHome,
   SalesmanProgress,
-  ServiceError,
-  VisitStats,
+  AdminFollowUp,
+  FollowUp,
+  FollowUpScope,
+  SalesmanTargetProgress,
+  SetTargetInput,
+  TargetProgress,
+  UpdateFollowUpInput,
+  UpdateMeetingInput,
+  SyncInput,
+  SyncResult,
+  CreateUploadInput,
+  UploadTicket,
+  DayRoute,
+  LatLng,
+  LocationPingsInput,
+  SalesmanLocation,
 } from '../types';
-import { clients, meetings, reminders, adminSalesmen, salesmanProgress, visitStats, adminOverview } from '../mocks/data';
+import Constants from 'expo-constants';
+import { getToken } from './session';
 
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+/**
+ * On a phone/emulator "localhost" is the phone itself, not the laptop running the API.
+ * In development we swap it for the laptop's address that Expo already uses to load the app
+ * (hostUri, e.g. "192.168.1.5:8081"), so it keeps working when the Wi-Fi / hotspot changes.
+ * Release builds use EXPO_PUBLIC_API_URL as is.
+ */
+function apiUrl(): string {
+  const url = process.env.EXPO_PUBLIC_API_URL;
+  if (!url) throw new Error('Missing EXPO_PUBLIC_API_URL in .env');
+  const devHost = __DEV__ ? Constants.expoConfig?.hostUri?.split(':')[0] : undefined;
+  return devHost && /localhost|127\.0\.0\.1/.test(url)
+    ? url.replace(/localhost|127\.0\.0\.1/, devHost)
+    : url;
+}
+const API_URL = apiUrl();
 
-function serviceError(message: string, opts?: { code?: string; status?: number }): ServiceError {
-  const err = new Error(message) as ServiceError;
-  err.name = 'ServiceError';
-  err.code = opts?.code;
-  err.status = opts?.status;
-  return err;
+/** Error with the API's machine code (e.g. "not_registered") and a message safe to show. */
+export class ApiError extends Error {
+  constructor(
+    public status: number,
+    public code: string,
+    message: string,
+  ) {
+    super(message);
+  }
 }
 
-export class CrmService {
-  async getStats(): Promise<VisitStats> {
-    await delay(300);
-    return { ...visitStats };
+async function request<T>(
+  path: string,
+  init: { method?: string; body?: unknown } = {},
+): Promise<T> {
+  const token = await getToken();
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}${path}`, {
+      method: init.method ?? 'GET',
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(init.body ? { 'Content-Type': 'application/json' } : {}),
+      },
+      body: init.body ? JSON.stringify(init.body) : undefined,
+    });
+  } catch {
+    throw new ApiError(0, 'network', 'No internet connection or server is down. Please try again.');
   }
-
-  async getAdminOverview(): Promise<AdminOverview> {
-    await delay(300);
-    return { ...adminOverview };
+  if (!res.ok) {
+    const body = (await res.json().catch(() => null)) as ApiErrorBody | null;
+    throw new ApiError(
+      res.status,
+      body?.error ?? 'server_error',
+      body?.message ?? 'Something went wrong.',
+    );
   }
-
-  async getClients(): Promise<Client[]> {
-    await delay(300);
-    return [...clients];
-  }
-
-  async getClient(id: string): Promise<Client | null> {
-    await delay(300);
-    return clients.find((c) => c.id === id) ?? null;
-  }
-
-  async searchClients(query: string): Promise<Client[]> {
-    await delay(300);
-    const q = query.toLowerCase();
-    return clients.filter((c) => c.name.toLowerCase().includes(q));
-  }
-
-  async getMeetings(salesmanId?: string): Promise<Meeting[]> {
-    await delay(300);
-    const list = [...meetings];
-    if (salesmanId) {
-      return list.filter((m) => m.salesmanId === salesmanId);
-    }
-    return list;
-  }
-
-  async getMeeting(id: string): Promise<Meeting | null> {
-    await delay(300);
-    return meetings.find((m) => m.id === id) ?? null;
-  }
-
-  async createMeeting(input: Omit<Meeting, 'id' | 'salesmanId' | 'createdAt' | 'updatedAt'>): Promise<Meeting> {
-    await delay(500);
-    const meeting: Meeting = {
-      ...input,
-      id: `m-${Date.now()}`,
-      salesmanId: 'sm-1',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    meetings.push(meeting);
-    return meeting;
-  }
-
-  async updateMeeting(id: string, patch: Partial<Meeting>): Promise<Meeting | null> {
-    await delay(400);
-    const idx = meetings.findIndex((m) => m.id === id);
-    if (idx === -1) return null;
-    meetings[idx] = { ...meetings[idx], ...patch, updatedAt: new Date().toISOString() };
-    return meetings[idx];
-  }
-
-  async getReminders(salesmanId?: string): Promise<Reminder[]> {
-    await delay(300);
-    return [...reminders];
-  }
-
-  async getSalesmanProgress(): Promise<SalesmanProgress[]> {
-    await delay(300);
-    return [...salesmanProgress];
-  }
-
-  async getSalesmen(): Promise<Salesman[]> {
-    await delay(300);
-    return [...adminSalesmen];
-  }
-
-  // TODO: wire up to real TypeScript backend
-  // async uploadAttachment(uri: string): Promise<Attachment> { ... }
-  // async transcribeVoiceNote(url: string): Promise<string> { ... }
-  // async sendWhatsAppReminder(reminderId: string): Promise<void> { ... }
+  return (await res.json()) as T;
 }
 
-export const crmService = new CrmService();
+export const crmService = {
+  // Any user
+  getMe: () => request<AppUser>('/me'),
+  // TEMPORARY: fixed-OTP login checked by our API (see backend/src/devLogin.ts)
+  devLogin: (phone: string, otp: string) =>
+    request<{ token: string; user: AppUser }>('/auth/dev-login', {
+      method: 'POST',
+      body: { phone, otp },
+    }),
+
+  // Salesman (server filters everything by the logged-in salesman)
+  getHome: () => request<SalesmanHome>('/me/home'),
+  togglePunch: (location: LatLng | null = null) =>
+    request<{ punchedInAt: string | null }>('/me/attendance/toggle', {
+      method: 'POST',
+      body: { location },
+    }),
+  /** GPS points buffered while punched in (max 120 per call). */
+  sendLocations: (input: LocationPingsInput) =>
+    request<{ accepted: number }>('/me/locations', { method: 'POST', body: input }),
+  getMeetings: (range: 'today' | 'week' | 'all' = 'all') =>
+    request<Meeting[]>(`/me/meetings?range=${range}`),
+  searchClients: (q: string) => request<Client[]>(`/me/clients?q=${encodeURIComponent(q)}`),
+  getClient: (id: string) => request<ClientDetail>(`/me/clients/${encodeURIComponent(id)}`),
+  getProducts: () => request<Product[]>('/products'),
+  createMeeting: (input: CreateMeetingInput) =>
+    request<Meeting>('/me/meetings', { method: 'POST', body: input }),
+  /** File step 1: one-time upload URL. Step 2: uploadFile. Step 3: send ticket.path with the meeting. */
+  createUpload: (input: CreateUploadInput) =>
+    request<UploadTicket>('/me/uploads', { method: 'POST', body: input }),
+  /** File step 2: send the file straight to storage (not through our API). */
+  uploadFile: async (ticket: UploadTicket, fileUri: string) => {
+    const file = await (await fetch(fileUri)).blob();
+    const res = await fetch(ticket.uploadUrl, {
+      method: 'PUT',
+      headers: { 'Content-Type': ticket.contentType },
+      body: file,
+    });
+    if (!res.ok) throw new ApiError(res.status, 'upload_failed', 'Could not upload the file.');
+    return ticket.path;
+  },
+  /** Offline queue: max 25 visits per call, oldest first. */
+  syncMeetings: (input: SyncInput) =>
+    request<SyncResult[]>('/me/sync', { method: 'POST', body: input }),
+  updateMeeting: (id: string, input: UpdateMeetingInput) =>
+    request<Meeting>(`/me/meetings/${encodeURIComponent(id)}`, { method: 'PATCH', body: input }),
+  getFollowUps: (scope: FollowUpScope) => request<FollowUp[]>(`/me/followups?scope=${scope}`),
+  updateFollowUp: (id: string, input: UpdateFollowUpInput) =>
+    request<FollowUp>(`/me/followups/${encodeURIComponent(id)}`, { method: 'PATCH', body: input }),
+  getMyTargets: (days = 7) => request<TargetProgress[]>(`/me/targets?days=${days}`),
+
+  // Admin
+  getAdminOverview: () => request<AdminOverview>('/admin/overview'),
+  getSalesmanProgress: () => request<SalesmanProgress[]>('/admin/progress'),
+  getAllMeetings: (limit = 50, salesmanId?: string) =>
+    request<Meeting[]>(
+      `/admin/meetings?limit=${limit}${salesmanId ? `&salesmanId=${encodeURIComponent(salesmanId)}` : ''}`,
+    ),
+  getLatestLocations: () => request<SalesmanLocation[]>('/admin/locations'),
+  getDayRoute: (salesmanId: string, date?: string) =>
+    request<DayRoute>(
+      `/admin/salesmen/${encodeURIComponent(salesmanId)}/route${date ? `?date=${date}` : ''}`,
+    ),
+  getMeeting: (id: string) => request<Meeting>(`/admin/meetings/${encodeURIComponent(id)}`),
+  addSalesman: (input: CreateSalesmanInput) =>
+    request<AppUser>('/admin/salesmen', { method: 'POST', body: input }),
+  getAllFollowUps: (scope: FollowUpScope, salesmanId?: string) =>
+    request<AdminFollowUp[]>(
+      `/admin/followups?scope=${scope}${salesmanId ? `&salesmanId=${encodeURIComponent(salesmanId)}` : ''}`,
+    ),
+  getTargets: (date?: string) =>
+    request<SalesmanTargetProgress[]>(`/admin/targets${date ? `?date=${date}` : ''}`),
+  setTargets: (input: SetTargetInput) =>
+    request<SalesmanTargetProgress[]>('/admin/targets', { method: 'PUT', body: input }),
+
+  // TODO (backend later): uploadAttachment, transcribeVoiceNote, sendWhatsAppReminder
+};

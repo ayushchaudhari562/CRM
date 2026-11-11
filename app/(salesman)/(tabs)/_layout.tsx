@@ -50,11 +50,7 @@ export default function SalesmanTabsLayout() {
     <View style={styles.container}>
       <Tabs
         tabBar={() => (
-          <BottomTabBar
-            tabs={tabs}
-            activeTab={getActiveTab()}
-            onTabPress={handleTabPress}
-          />
+          <BottomTabBar tabs={tabs} activeTab={getActiveTab()} onTabPress={handleTabPress} />
         )}
         screenOptions={{
           headerShown: false,

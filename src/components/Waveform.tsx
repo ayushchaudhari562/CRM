@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import Svg, { Rect } from 'react-native-svg';
 import { Play, Pause } from 'lucide-react-native';
-import { useTheme } from '../theme';
+import { useTheme, fonts } from '../theme';
 
 export interface WaveformProps {
   duration?: string;
@@ -108,20 +108,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   duration: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 13,
   },
   summaryBox: {
     gap: 4,
   },
   summaryLabel: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 12,
   },
   summaryText: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 14,
     lineHeight: 20,
   },
 });
-

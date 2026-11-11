@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { WifiOff } from 'lucide-react-native';
-import { useTheme } from '../theme';
+import { useTheme, fonts } from '../theme';
 
 export interface OfflineBannerProps {
   visible?: boolean;
@@ -13,9 +13,15 @@ export const OfflineBanner: React.FC<OfflineBannerProps> = ({ visible = true }) 
   if (!visible) return null;
 
   return (
-    <View style={[styles.banner, { backgroundColor: '#2A2015', borderColor: '#664D28' }]}>
-      <WifiOff size={16} color="#E5A855" />
-      <Text style={[styles.text, { color: '#E5A855' }]}>
+    <View
+      accessibilityRole="alert"
+      style={[
+        styles.banner,
+        { backgroundColor: theme.colors.warningBg, borderColor: theme.colors.warningBorder },
+      ]}
+    >
+      <WifiOff size={16} color={theme.colors.warning} />
+      <Text style={[styles.text, { color: theme.colors.warning }]}>
         Offline mode · Changes will sync when connected
       </Text>
     </View>
@@ -34,9 +40,7 @@ const styles = StyleSheet.create({
     zIndex: 999,
   },
   text: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.medium,
     fontSize: 12,
-    fontWeight: '500',
   },
 });
-

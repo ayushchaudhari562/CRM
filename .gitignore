@@ -16,3 +16,8 @@ web-build/
 # Windows
 Thumbs.db
 
+
+# env files (secrets) - never commit
+.env
+.env.*
+!.env.example

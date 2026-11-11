@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Check, MoreHorizontal } from 'lucide-react-native';
-import { useTheme } from '../theme';
+import { useTheme, fonts } from '../theme';
 
 export interface TimelineItem {
   id: string;
@@ -35,7 +35,7 @@ export const Timeline: React.FC<TimelineProps> = ({ items }) => {
                 style={[
                   styles.node,
                   {
-                    backgroundColor: '#2E5E3A',
+                    backgroundColor: theme.colors.timelineDone,
                     borderColor: theme.colors.accent,
                     borderWidth: 2,
                   },
@@ -78,9 +78,7 @@ export const Timeline: React.FC<TimelineProps> = ({ items }) => {
                 {item.statusLabel ? ` · ${item.statusLabel}` : ''}
                 {item.dealValue ? ` ₹${item.dealValue.toLocaleString('en-IN')}` : ''}
               </Text>
-              <Text style={[styles.sub, { color: theme.colors.muted }]}>
-                {item.businessType}
-              </Text>
+              <Text style={[styles.sub, { color: theme.colors.muted }]}>{item.businessType}</Text>
             </View>
 
             <Text style={[styles.time, { color: theme.colors.muted }]}>{item.time}</Text>
@@ -113,17 +111,15 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   title: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.medium,
     fontSize: 15,
-    fontWeight: '500',
   },
   sub: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 12,
   },
   time: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 13,
   },
 });
-

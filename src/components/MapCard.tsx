@@ -17,12 +17,7 @@ export interface MapCardProps {
   style?: ViewStyle;
 }
 
-export const MapCard: React.FC<MapCardProps> = ({
-  height = 190,
-  pins,
-  pinColor,
-  style,
-}) => {
+export const MapCard: React.FC<MapCardProps> = ({ height = 190, pins, pinColor, style }) => {
   const { theme } = useTheme();
   const activeColor = pinColor ?? theme.colors.accent;
 
@@ -71,4 +66,3 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
 });
-

@@ -1,71 +1,41 @@
-export const baseColors = {
-  bg: '#0B0C0D',
-  surface: '#17181A',
-  surface2: '#1F2022',
-  border: '#2A2B2E',
-  track: '#3A3C40',
-  neutral: '#5A5C61',
-  text: '#F4F4F2',
-  muted: '#9EA1A6',
-  accent: '#7FC08A', // salesman app + admin mobile
-  onAccent: '#0B0C0D',
-  accentSoftBg: '#1F3A27', // check circles
-  adminRed: '#D13438', // admin web bento fill
-  adminRedText: '#FF6B6F', // red used as text on dark
+// Single source of truth: all base tokens come from starter/theme.ts.
+import { colors as baseColors, radius, space, font, type, minTouch } from '../../starter/theme';
+
+export { baseColors, radius, space, font, type, minTouch };
+
+// Font names exactly as loaded with useFonts() in app/_layout.tsx.
+// Use these instead of fontFamily 'Inter' + fontWeight: Android ignores fontWeight
+// for custom fonts, and 'Inter' itself is not a loaded font name.
+export const fonts = {
+  regular: 'Inter_400Regular',
+  medium: 'Inter_500Medium',
+  semibold: 'Inter_600SemiBold',
 } as const;
 
-export const radius = {
-  field: 14,
-  chip: 20,
-  card: 22,
-  tile: 24,
-  sheet: 28,
-  pill: 26,
+// Extra colors for the red (admin web) variant. Not in starter/theme.ts.
+const redVariant = {
+  onAccent: '#FFFFFF',
+  accentSoftBg: '#4D1B1E',
 } as const;
 
-export const space = {
-  screen: 20,
-  gap: 16,
-  tile: 24,
+// Colors used by design-reference/*.html (or needed by the UI) but missing in starter/theme.ts.
+const extraColors = {
+  ringTick: '#BFE3C5', // lit ticks of the visits ring (02, 06)
+  tabBar: '#111213', // bottom tab bar background (02, 06, 07)
+  timelineDone: '#2E5E3A', // "done" node fill in the visit timeline (08)
+  onDanger: '#FFFFFF', // text on adminRed buttons
+  statusIdle: '#8C7B65', // "Not started" in field status (07, 09)
+  // Offline banner. Not in the design files: picked to read as a warning on dark bg.
+  warning: '#E5A855',
+  warningBg: '#2A2015',
+  warningBorder: '#664D28',
 } as const;
-
-export const font = {
-  family: 'Inter',
-  regular: '400',
-  medium: '500',
-  semibold: '600',
-} as const;
-
-export const type = {
-  h1: 30,
-  title: 18,
-  body: 15,
-  label: 13,
-  caption: 12,
-  hero: 52,
-} as const;
-
-export const minTouch = 44;
 
 export type ThemeVariant = 'green' | 'red';
 
 export interface Theme {
   variant: ThemeVariant;
-  colors: {
-    bg: string;
-    surface: string;
-    surface2: string;
-    border: string;
-    track: string;
-    neutral: string;
-    text: string;
-    muted: string;
-    accent: string;
-    onAccent: string;
-    accentSoftBg: string;
-    adminRed: string;
-    adminRedText: string;
-  };
+  colors: Record<keyof typeof baseColors | keyof typeof extraColors, string>;
   radius: typeof radius;
   space: typeof space;
   font: typeof font;
@@ -79,9 +49,10 @@ export function createTheme(variant: ThemeVariant = 'green'): Theme {
     variant,
     colors: {
       ...baseColors,
+      ...extraColors,
       accent: isRed ? baseColors.adminRed : baseColors.accent,
-      onAccent: isRed ? '#FFFFFF' : baseColors.onAccent,
-      accentSoftBg: isRed ? '#4D1B1E' : baseColors.accentSoftBg,
+      onAccent: isRed ? redVariant.onAccent : baseColors.onAccent,
+      accentSoftBg: isRed ? redVariant.accentSoftBg : baseColors.accentSoftBg,
     },
     radius,
     space,
@@ -93,4 +64,3 @@ export function createTheme(variant: ThemeVariant = 'green'): Theme {
 
 export const defaultTheme = createTheme('green');
 export const colors = baseColors;
-

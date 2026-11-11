@@ -1,16 +1,34 @@
 import React from 'react';
-import { View } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import Svg, { Line, Text as SvgText } from 'react-native-svg';
-import { useTheme } from '../theme';
+import { useTheme, fonts } from '../theme';
 
 export interface TickRingProps {
-  value: string;
-  label: string;
+  value: string; // big text in the middle, e.g. "3/8"
+  label: string; // small text under it, e.g. "Visits done"
   activeCount?: number;
   totalCount?: number;
-  percentage?: number; // 0 to 1
+  percentage?: number; // 0..1, used instead of active/total when given
   size?: number;
   accentColor?: string;
+}
+
+const TICKS = 48;
+const CENTER = 130; // the drawing is 260x260 and scaled to `size`
+const INNER_RADIUS = 70;
+// Fixed "random" tick lengths to match the organic look of the mockup.
+const TICK_LENGTHS = [
+  12, 29, 32, 20, 19, 27, 21, 8, 25, 31, 16, 22, 34, 28, 12, 27, 29, 17, 16, 21, 20, 8, 29, 34, 10,
+  23, 33, 27, 18, 24, 23, 16, 20, 31, 27, 14, 30, 32, 19, 21, 29, 22, 10, 22, 28, 17, 23, 33,
+];
+
+/** How many of the 48 ticks are lit. Always 0..48 (no NaN, no negative, no overflow). */
+export function litTickCount(percentage?: number, active?: number, total?: number): number {
+  let ratio = 0;
+  if (percentage !== undefined) ratio = percentage;
+  else if (active !== undefined && total !== undefined && total > 0) ratio = active / total;
+  if (!Number.isFinite(ratio)) return 0;
+  return Math.round(Math.min(1, Math.max(0, ratio)) * TICKS);
 }
 
 export const TickRing: React.FC<TickRingProps> = ({
@@ -23,63 +41,11 @@ export const TickRing: React.FC<TickRingProps> = ({
   accentColor,
 }) => {
   const { theme } = useTheme();
-  const ticks = 48;
-  const cx = 130;
-  const cy = 130;
-
-  // Determine how many ticks to light up
-  let litTicks = 0;
-  if (percentage !== undefined) {
-    litTicks = Math.round(percentage * ticks);
-  } else if (activeCount !== undefined && totalCount !== undefined && totalCount > 0) {
-    litTicks = Math.min(ticks, Math.round((activeCount / totalCount) * ticks));
-  } else {
-    litTicks = 18; // default matching 3/8 mockup
-  }
-
-  // Precomputed pseudorandom outer lengths for the exact organic look in the mockup
-  const tickLengths = [
-    12, 29, 32, 20, 19, 27, 21, 8, 25, 31, 16, 22, 34, 28, 12, 27, 29, 17, 16, 21, 20, 8, 29, 34,
-    10, 23, 33, 27, 18, 24, 23, 16, 20, 31, 27, 14, 30, 32, 19, 21, 29, 22, 10, 22, 28, 17, 23,
-    33,
-  ];
-
-  const activeStroke = accentColor ?? '#BFE3C5';
-  const trackStroke = theme.colors.track;
-
-  const lines = [];
-  for (let i = 0; i < ticks; i++) {
-    const angle = (i / ticks) * 2 * Math.PI;
-    const isLit = i < litTicks;
-
-    const r1 = 70;
-    const len = tickLengths[i % tickLengths.length];
-    const r2 = r1 + len;
-
-    const x1 = cx + r1 * Math.cos(angle);
-    const y1 = cy + r1 * Math.sin(angle);
-    const x2 = cx + r2 * Math.cos(angle);
-    const y2 = cy + r2 * Math.sin(angle);
-
-    const opacity = isLit ? 0.75 + (i % 4) * 0.08 : 1.0;
-
-    lines.push(
-      <Line
-        key={i}
-        x1={x1.toFixed(1)}
-        y1={y1.toFixed(1)}
-        x2={x2.toFixed(1)}
-        y2={y2.toFixed(1)}
-        stroke={isLit ? activeStroke : trackStroke}
-        strokeWidth={3}
-        strokeLinecap="round"
-        opacity={isLit ? opacity : 1.0}
-      />
-    );
-  }
+  const lit = litTickCount(percentage, activeCount, totalCount);
+  const litColor = accentColor ?? theme.colors.ringTick;
 
   return (
-    <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+    <View style={styles.wrapper}>
       <Svg
         width={size}
         height={size}
@@ -87,25 +53,40 @@ export const TickRing: React.FC<TickRingProps> = ({
         accessibilityRole="image"
         accessibilityLabel={`${value} ${label}`}
       >
-        {lines}
+        {TICK_LENGTHS.map((len, i) => {
+          const angle = (i / TICKS) * 2 * Math.PI;
+          const isLit = i < lit;
+          const outer = INNER_RADIUS + len;
+          return (
+            <Line
+              key={i}
+              x1={CENTER + INNER_RADIUS * Math.cos(angle)}
+              y1={CENTER + INNER_RADIUS * Math.sin(angle)}
+              x2={CENTER + outer * Math.cos(angle)}
+              y2={CENTER + outer * Math.sin(angle)}
+              stroke={isLit ? litColor : theme.colors.track}
+              strokeWidth={3}
+              strokeLinecap="round"
+              opacity={isLit ? 0.75 + (i % 4) * 0.08 : 1}
+            />
+          );
+        })}
         <SvgText
-          x={cx}
+          x={CENTER}
           y={128}
           textAnchor="middle"
-          fontFamily="Inter"
+          fontFamily={fonts.semibold}
           fontSize="44"
-          fontWeight="600"
           fill={theme.colors.text}
         >
           {value}
         </SvgText>
         <SvgText
-          x={cx}
+          x={CENTER}
           y={154}
           textAnchor="middle"
-          fontFamily="Inter"
+          fontFamily={fonts.regular}
           fontSize="15"
-          fontWeight="400"
           fill={theme.colors.muted}
         >
           {label}
@@ -115,3 +96,6 @@ export const TickRing: React.FC<TickRingProps> = ({
   );
 };
 
+const styles = StyleSheet.create({
+  wrapper: { alignItems: 'center', justifyContent: 'center' },
+});

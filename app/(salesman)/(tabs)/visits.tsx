@@ -2,39 +2,29 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, FlatList, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
-import { CheckCircle2, Clock, Calendar, ChevronRight } from 'lucide-react-native';
-import { useTheme } from '../../../src/theme';
+import { Clock } from 'lucide-react-native';
+import { useTheme, fonts } from '../../../src/theme';
 import { Chip, LoadingView, EmptyView, ErrorView } from '../../../src/components';
 import { crmService } from '../../../src/services';
-import type { Meeting } from '../../../src/types';
+import { formatDateTime, formatINR } from '../../../src/utils/format';
+
+const RANGE = { Today: 'today', Week: 'week', All: 'all' } as const;
 
 export default function VisitsScreen() {
   const { theme } = useTheme();
   const router = useRouter();
-  const [filter, setFilter] = useState<'Today' | 'Week' | 'All'>('Today');
+  const [filter, setFilter] = useState<keyof typeof RANGE>('Today');
 
+  // The server filters by date range and by the logged-in salesman.
   const {
-    data: meetings,
+    data: filtered = [],
     isLoading,
     error,
     refetch,
-  } = useQuery<Meeting[]>({
-    queryKey: ['meetings'],
-    queryFn: () => crmService.getMeetings(),
+  } = useQuery({
+    queryKey: ['meetings', RANGE[filter]],
+    queryFn: () => crmService.getMeetings(RANGE[filter]),
   });
-
-  const getFilteredMeetings = () => {
-    if (!meetings) return [];
-    if (filter === 'Today') {
-      return meetings.slice(0, 3);
-    }
-    if (filter === 'Week') {
-      return meetings;
-    }
-    return meetings;
-  };
-
-  const filtered = getFilteredMeetings();
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.bg }]}>
@@ -48,28 +38,16 @@ export default function VisitsScreen() {
 
       {/* Filter Chips */}
       <View style={styles.filterRow}>
-        <Chip
-          label="Today"
-          selected={filter === 'Today'}
-          onPress={() => setFilter('Today')}
-        />
-        <Chip
-          label="This Week"
-          selected={filter === 'Week'}
-          onPress={() => setFilter('Week')}
-        />
-        <Chip
-          label="All Visits"
-          selected={filter === 'All'}
-          onPress={() => setFilter('All')}
-        />
+        <Chip label="Today" selected={filter === 'Today'} onPress={() => setFilter('Today')} />
+        <Chip label="This Week" selected={filter === 'Week'} onPress={() => setFilter('Week')} />
+        <Chip label="All Visits" selected={filter === 'All'} onPress={() => setFilter('All')} />
       </View>
 
       {/* Content */}
       {isLoading ? (
         <LoadingView message="Loading your visit logs..." />
       ) : error ? (
-        <ErrorView message="Failed to load visits" onRetry={() => refetch()} />
+        <ErrorView message={error.message} onRetry={() => refetch()} />
       ) : filtered.length === 0 ? (
         <EmptyView
           title="No visits logged"
@@ -89,7 +67,9 @@ export default function VisitsScreen() {
 
             return (
               <Pressable
-                onPress={() => router.push(`/(admin)/report/${item.id}` as any)}
+                onPress={() => router.push(`/(salesman)/client/${item.clientId}`)}
+                accessibilityRole="button"
+                accessibilityLabel={`${item.clientName}, ${item.outcome}. Open client details`}
                 style={({ pressed }) => [
                   styles.visitCard,
                   {
@@ -114,10 +94,10 @@ export default function VisitsScreen() {
                       styles.outcomeBadge,
                       {
                         backgroundColor: isClosed
-                          ? '#1F3A27'
+                          ? theme.colors.accentSoftBg
                           : isInterested
-                          ? theme.colors.surface2
-                          : '#2A2022',
+                            ? theme.colors.surface2
+                            : theme.colors.surface2,
                       },
                     ]}
                   >
@@ -128,8 +108,8 @@ export default function VisitsScreen() {
                           color: isClosed
                             ? theme.colors.accent
                             : isInterested
-                            ? theme.colors.text
-                            : theme.colors.muted,
+                              ? theme.colors.text
+                              : theme.colors.muted,
                         },
                       ]}
                     >
@@ -142,20 +122,15 @@ export default function VisitsScreen() {
                   <View style={styles.footerItem}>
                     <Clock size={13} color={theme.colors.muted} />
                     <Text style={[styles.footerText, { color: theme.colors.muted }]}>
-                      {new Date(item.createdAt).toLocaleTimeString([], {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
+                      {formatDateTime(item.checkInAt)}
                     </Text>
                   </View>
 
                   {item.dealValue > 0 ? (
                     <Text style={[styles.dealValueText, { color: theme.colors.accent }]}>
-                      ₹{item.dealValue.toLocaleString('en-IN')}
+                      {formatINR(item.dealValue)}
                     </Text>
                   ) : null}
-
-                  <ChevronRight size={16} color={theme.colors.muted} style={{ marginLeft: 'auto' }} />
                 </View>
               </Pressable>
             );
@@ -176,12 +151,11 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   title: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.semibold,
     fontSize: 26,
-    fontWeight: '600',
   },
   subtitle: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 13,
     marginTop: 2,
   },
@@ -212,12 +186,11 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   clientName: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.semibold,
     fontSize: 16,
-    fontWeight: '600',
   },
   businessType: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 13,
   },
   outcomeBadge: {
@@ -226,9 +199,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   outcomeText: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.semibold,
     fontSize: 12,
-    fontWeight: '600',
   },
   cardFooter: {
     flexDirection: 'row',
@@ -244,13 +216,11 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   footerText: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 12,
   },
   dealValueText: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.semibold,
     fontSize: 13,
-    fontWeight: '600',
   },
 });
-

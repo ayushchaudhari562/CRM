@@ -1,0 +1,32 @@
+# Render blueprint: TEMPORARY test deploy of the API (backend/).
+# NODE_ENV is deliberately NOT "production" here so the fixed-OTP dev login stays on for phone testing.
+# Before real users: set NODE_ENV=production and remove DEV_LOGIN_OTP / DEV_JWT_SECRET.
+services:
+  - type: web
+    name: sales-crm-api
+    runtime: node
+    region: singapore
+    plan: free
+    branch: mvp-refactor
+    rootDir: backend
+    buildCommand: npm ci && npx prisma generate
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: 22.21.0
+      # Secrets: typed into the Render dashboard, never stored in git.
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
+      - key: VITE_SUPABASE_URL
+        sync: false
+      - key: VITE_SUPABASE_PUBLISHABLE_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: DEV_LOGIN_OTP
+        sync: false
+      - key: DEV_JWT_SECRET
+        sync: false

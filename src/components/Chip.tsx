@@ -1,6 +1,6 @@
 import React from 'react';
 import { Pressable, Text, StyleSheet, ViewStyle, TextStyle } from 'react-native';
-import { useTheme } from '../theme';
+import { useTheme, fonts, minTouch } from '../theme';
 
 export interface ChipProps {
   label: string;
@@ -12,6 +12,7 @@ export interface ChipProps {
   count?: number | string;
 }
 
+// Pill used for filters and multi-select (product chips, Today/Week/All).
 export const Chip: React.FC<ChipProps> = ({
   label,
   selected = false,
@@ -22,13 +23,15 @@ export const Chip: React.FC<ChipProps> = ({
   count,
 }) => {
   const { theme } = useTheme();
+  const textColor = selected ? theme.colors.onAccent : theme.colors.text;
 
   return (
     <Pressable
       onPress={onPress}
-      accessibilityRole="button"
+      disabled={!onPress}
+      accessibilityRole={onPress ? 'button' : 'text'}
       accessibilityState={{ selected }}
-      accessibilityLabel={accessibilityLabel || label}
+      accessibilityLabel={accessibilityLabel ?? (count !== undefined ? `${label} ${count}` : label)}
       style={({ pressed }) => [
         styles.chip,
         {
@@ -40,24 +43,11 @@ export const Chip: React.FC<ChipProps> = ({
         style,
       ]}
     >
-      <Text
-        style={[
-          styles.text,
-          {
-            color: selected ? theme.colors.onAccent : theme.colors.text,
-          },
-          textStyle,
-        ]}
-      >
+      <Text style={[styles.text, { color: textColor }, textStyle]}>
         {label}
         {count !== undefined ? (
-          <Text
-            style={{
-              color: selected ? theme.colors.onAccent : theme.colors.accent,
-              fontWeight: '600',
-            }}
-          >
-            {' '}{count}
+          <Text style={[styles.count, { color: selected ? textColor : theme.colors.accent }]}>
+            {` ${count}`}
           </Text>
         ) : null}
       </Text>
@@ -67,18 +57,17 @@ export const Chip: React.FC<ChipProps> = ({
 
 const styles = StyleSheet.create({
   chip: {
-    paddingVertical: 10,
+    minHeight: minTouch,
     paddingHorizontal: 14,
     borderWidth: 1,
-    minHeight: 40,
     justifyContent: 'center',
     alignItems: 'center',
-    flexDirection: 'row',
   },
   text: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.medium,
     fontSize: 14,
-    fontWeight: '500',
+  },
+  count: {
+    fontFamily: fonts.semibold,
   },
 });
-

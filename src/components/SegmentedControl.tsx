@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet, ViewStyle } from 'react-native';
-import { useTheme } from '../theme';
+import { useTheme, fonts } from '../theme';
 
 export interface SegmentOption<T extends string> {
   value: T;
@@ -76,10 +76,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   text: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.semibold,
     fontSize: 13,
-    fontWeight: '600',
     textAlign: 'center',
   },
 });
-

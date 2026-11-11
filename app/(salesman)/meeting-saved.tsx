@@ -2,38 +2,32 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Check } from 'lucide-react-native';
-import { useTheme } from '../../src/theme';
-import { Button, Card } from '../../src/components';
+import { useTheme, fonts } from '../../src/theme';
+import { Button } from '../../src/components';
 import { useAppStore } from '../../src/store';
+import { formatDateTime } from '../../src/utils/format';
 
 export default function MeetingSavedScreen() {
   const { theme } = useTheme();
   const router = useRouter();
-  const { meetingDraft, resetMeetingDraft } = useAppStore();
+  const { lastSavedMeeting } = useAppStore();
 
-  const handleStartNext = () => {
-    resetMeetingDraft();
-    router.replace('/(salesman)/checkin');
-  };
+  const handleStartNext = () => router.replace('/(salesman)/checkin');
 
   const handleBackHome = () => {
     router.replace('/(salesman)/(tabs)');
   };
 
-  const reminderText = meetingDraft.nextVisit
-    ? `Reminder set for ${meetingDraft.nextVisit}`
-    : 'Reminder set for 15 Nov, 11:00 AM';
+  const next = lastSavedMeeting?.nextVisit;
+  const reminderText = next
+    ? `Follow-up set for ${formatDateTime(next)}${lastSavedMeeting?.whatsappReminder ? ' (WhatsApp reminder)' : ''}`
+    : 'No follow-up set';
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.bg }]}>
       <View style={styles.content}>
         {/* Big Check Circle */}
-        <View
-          style={[
-            styles.checkCircleLarge,
-            { backgroundColor: theme.colors.accent },
-          ]}
-        >
+        <View style={[styles.checkCircleLarge, { backgroundColor: theme.colors.accent }]}>
           <Check size={48} color={theme.colors.onAccent} strokeWidth={3} />
         </View>
 
@@ -46,12 +40,7 @@ export default function MeetingSavedScreen() {
         {/* Automatic actions list card */}
         <View style={[styles.actionsCard, { backgroundColor: theme.colors.surface }]}>
           <View style={styles.actionRow}>
-            <View
-              style={[
-                styles.actionCheck,
-                { backgroundColor: theme.colors.accentSoftBg },
-              ]}
-            >
+            <View style={[styles.actionCheck, { backgroundColor: theme.colors.accentSoftBg }]}>
               <Check size={16} color={theme.colors.accent} strokeWidth={2.5} />
             </View>
             <Text style={[styles.actionText, { color: theme.colors.text }]}>
@@ -60,30 +49,18 @@ export default function MeetingSavedScreen() {
           </View>
 
           <View style={styles.actionRow}>
-            <View
-              style={[
-                styles.actionCheck,
-                { backgroundColor: theme.colors.accentSoftBg },
-              ]}
-            >
+            <View style={[styles.actionCheck, { backgroundColor: theme.colors.accentSoftBg }]}>
               <Check size={16} color={theme.colors.accent} strokeWidth={2.5} />
             </View>
-            <Text style={[styles.actionText, { color: theme.colors.text }]}>
-              {reminderText}
-            </Text>
+            <Text style={[styles.actionText, { color: theme.colors.text }]}>{reminderText}</Text>
           </View>
 
           <View style={styles.actionRow}>
-            <View
-              style={[
-                styles.actionCheck,
-                { backgroundColor: theme.colors.accentSoftBg },
-              ]}
-            >
+            <View style={[styles.actionCheck, { backgroundColor: theme.colors.accentSoftBg }]}>
               <Check size={16} color={theme.colors.accent} strokeWidth={2.5} />
             </View>
             <Text style={[styles.actionText, { color: theme.colors.text }]}>
-              Added to today's visit count
+              Added to today&apos;s visit count
             </Text>
           </View>
         </View>
@@ -99,12 +76,7 @@ export default function MeetingSavedScreen() {
             size="normal"
           />
 
-          <Button
-            title="Back to home"
-            onPress={handleBackHome}
-            variant="outline"
-            size="compact"
-          />
+          <Button title="Back to home" onPress={handleBackHome} variant="outline" size="compact" />
         </View>
       </View>
     </View>
@@ -135,13 +107,12 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   title: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.semibold,
     fontSize: 30,
-    fontWeight: '600',
     textAlign: 'center',
   },
   subtitle: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 14,
     textAlign: 'center',
   },
@@ -165,7 +136,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   actionText: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 15,
   },
   spacer: {
@@ -176,4 +147,3 @@ const styles = StyleSheet.create({
     gap: 12,
   },
 });
-

@@ -1,97 +1,45 @@
 import { create } from 'zustand';
-import type { Role, Salesman, MeetingOutcome } from '../types';
-import { currentUser } from '../mocks/data';
+import type { AppUser, Meeting } from '../types';
+import { clearSession } from '../services/session';
+import { queryClient } from '../services/queryClient';
 
-export interface MeetingDraft {
-  clientName: string;
-  businessType: string;
-  contactNumber: string;
-  products: string[];
-  dealValue: string; // formatted or raw
-  outcome: MeetingOutcome;
-  voiceNoteUri: string | null;
-  voiceNoteDuration: number;
-  nextVisit: string;
-  whatsappReminder: boolean;
-  selfieUri: string | null;
-  checkinTime: string;
-  locationCaptured: boolean;
-  timeSaved: boolean;
-  fakeGpsPassed: boolean;
-  attachments: { id: string; name: string; uri: string; type: 'photo' | 'file'; size: number }[];
+/** Captured on the check-in screen, sent with the meeting. */
+export interface CheckIn {
+  checkInAt: string; // ISO
+  location: { latitude: number; longitude: number; accuracy: number | null } | null; // null = GPS denied
+  selfieUri: string | null; // local file; upload comes with the storage backend (TODO)
 }
 
-const defaultDraft: MeetingDraft = {
-  clientName: 'Client A',
-  businessType: 'Kirana store',
-  contactNumber: '+91 90000 00001',
-  products: ['Product 1', 'Product 2'],
-  dealValue: '25,000',
-  outcome: 'Interested',
-  voiceNoteUri: null,
-  voiceNoteDuration: 24,
-  nextVisit: '15 Nov 2026, 11:00 AM',
-  whatsappReminder: true,
-  selfieUri: null,
-  checkinTime: '11:02 AM',
-  locationCaptured: true,
-  timeSaved: true,
-  fakeGpsPassed: true,
-  attachments: [],
-};
-
 interface AppState {
-  role: Role;
-  isLoggedIn: boolean;
-  user: Salesman;
-  isPunchedIn: boolean;
-  punchInTime: string | null;
-  offlineMode: boolean;
-  meetingDraft: MeetingDraft;
+  user: AppUser | null; // null = logged out. Role comes from the API (/me), never chosen in the app.
+  authReady: boolean; // false until we checked for a saved session on app start
+  offlineMode: boolean; // UI-only banner for now
+  checkIn: CheckIn | null;
+  lastSavedMeeting: Meeting | null; // shown on the "Meeting saved" screen
 
-  // Actions
-  setRole: (role: Role) => void;
-  setIsLoggedIn: (loggedIn: boolean) => void;
-  togglePunchIn: () => void;
+  setUser: (user: AppUser | null) => void;
+  setAuthReady: () => void;
+  logout: () => Promise<void>;
   toggleOffline: () => void;
-  updateMeetingDraft: (patch: Partial<MeetingDraft>) => void;
-  resetMeetingDraft: () => void;
+  setCheckIn: (checkIn: CheckIn | null) => void;
+  setLastSavedMeeting: (meeting: Meeting | null) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
-  role: 'salesman',
-  isLoggedIn: true,
-  user: currentUser,
-  isPunchedIn: false,
-  punchInTime: null,
+  user: null,
+  authReady: false,
   offlineMode: false,
-  meetingDraft: { ...defaultDraft },
+  checkIn: null,
+  lastSavedMeeting: null,
 
-  setRole: (role) => set({ role }),
-  setIsLoggedIn: (isLoggedIn) => set({ isLoggedIn }),
-  togglePunchIn: () =>
-    set((state) => ({
-      isPunchedIn: !state.isPunchedIn,
-      punchInTime: !state.isPunchedIn ? new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null,
-    })),
-  toggleOffline: () => set((state) => ({ offlineMode: !state.offlineMode })),
-  updateMeetingDraft: (patch) =>
-    set((state) => ({
-      meetingDraft: { ...state.meetingDraft, ...patch },
-    })),
-  resetMeetingDraft: () =>
-    set({
-      meetingDraft: {
-        ...defaultDraft,
-        clientName: '',
-        businessType: '',
-        contactNumber: '',
-        products: [],
-        dealValue: '',
-        outcome: 'Interested',
-        selfieUri: null,
-        attachments: [],
-      },
-    }),
+  setUser: (user) => set({ user }),
+  setAuthReady: () => set({ authReady: true }),
+  logout: async () => {
+    await clearSession();
+    queryClient.clear(); // never show the previous user's cached data
+    set({ user: null, checkIn: null, lastSavedMeeting: null });
+  },
+  toggleOffline: () => set((s) => ({ offlineMode: !s.offlineMode })),
+  setCheckIn: (checkIn) => set({ checkIn }),
+  setLastSavedMeeting: (lastSavedMeeting) => set({ lastSavedMeeting }),
 }));
-

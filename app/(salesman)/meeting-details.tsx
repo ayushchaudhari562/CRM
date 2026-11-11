@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -9,229 +9,162 @@ import {
   Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ChevronLeft, Mic, Check, Paperclip, FileText, X } from 'lucide-react-native';
-import * as DocumentPicker from 'expo-document-picker';
-import * as ImagePicker from 'expo-image-picker';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { ChevronLeft, Check, Mic } from 'lucide-react-native';
 import { z } from 'zod';
-import { useTheme } from '../../src/theme';
-import {
-  Button,
-  Field,
-  Chip,
-  SegmentedControl,
-  Card,
-} from '../../src/components';
+import { useTheme, fonts } from '../../src/theme';
+import { Button, Field, Chip, SegmentedControl, EmptyView } from '../../src/components';
 import { useAppStore } from '../../src/store';
 import { crmService } from '../../src/services';
-import { products as availableProducts } from '../../src/mocks/data';
+import { formatDateTime } from '../../src/utils/format';
 import type { Client, MeetingOutcome } from '../../src/types';
 
-const meetingValidationSchema = z.object({
+const schema = z.object({
   clientName: z.string().trim().min(2, 'Client name must be at least 2 characters'),
   businessType: z.string().trim().min(2, 'Business type is required'),
-  contactNumber: z.string().trim().min(8, 'Enter a valid contact number'),
-  products: z.array(z.string()).min(1, 'Select at least one product discussed'),
-  outcome: z.enum(['Interested', 'Closed', 'Not interested']),
+  contactNumber: z
+    .string()
+    .trim()
+    .refine((v) => v === '' || v.replace(/\D/g, '').length >= 10, 'Enter a valid 10-digit number'),
+  productIds: z.array(z.string()).min(1, 'Select at least one product discussed'),
 });
+
+// Quick choices instead of a date picker library. Covers the common "come back after N days".
+const NEXT_VISIT_OPTIONS = [
+  { label: 'None', days: 0 },
+  { label: 'Tomorrow', days: 1 },
+  { label: 'In 3 days', days: 3 },
+  { label: 'In 7 days', days: 7 },
+] as const;
+const NEXT_VISIT_HOUR = 11; // 11:00 local time
+
+function nextVisitDate(days: number): Date | null {
+  if (!days) return null;
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  d.setHours(NEXT_VISIT_HOUR, 0, 0, 0);
+  return d;
+}
 
 export default function MeetingDetailsScreen() {
   const { theme } = useTheme();
   const router = useRouter();
-  const { meetingDraft, updateMeetingDraft } = useAppStore();
+  const qc = useQueryClient();
+  const { user, checkIn, setCheckIn, setLastSavedMeeting } = useAppStore();
 
-  // Form State
-  const [clientName, setClientName] = useState(meetingDraft.clientName || 'Client A');
-  const [businessType, setBusinessType] = useState(meetingDraft.businessType || 'Kirana store');
-  const [contactNumber, setContactNumber] = useState(meetingDraft.contactNumber || '+91 90000 00001');
-  const [selectedProducts, setSelectedProducts] = useState<string[]>(
-    meetingDraft.products.length ? meetingDraft.products : ['Product 1', 'Product 2']
+  // One id per form: pressing Submit again after a network error will not create a duplicate.
+  const [clientRequestId] = useState(
+    () => `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
   );
-  const [dealValue, setDealValue] = useState(meetingDraft.dealValue || '25,000');
-  const [outcome, setOutcome] = useState<MeetingOutcome>(meetingDraft.outcome || 'Interested');
-  const [nextVisit, setNextVisit] = useState(
-    meetingDraft.nextVisit || '15 Nov 2026, 11:00 AM'
-  );
-  const [whatsappReminder, setWhatsappReminder] = useState(meetingDraft.whatsappReminder ?? true);
-  const [attachments, setAttachments] = useState<
-    { id: string; name: string; uri: string; type: 'photo' | 'file'; size: number }[]
-  >(meetingDraft.attachments || []);
 
-  // Voice note recording state
-  const [isRecording, setIsRecording] = useState(false);
-  const [recordingSeconds, setRecordingSeconds] = useState(24);
-  const timerRef = useRef<any>(null);
-
-  // Autocomplete state
-  const [clientSuggestions, setClientSuggestions] = useState<Client[]>([]);
-  const [isExistingClient, setIsExistingClient] = useState(true);
+  const [clientId, setClientId] = useState<string | null>(null); // set when an existing client is picked
+  const [clientName, setClientName] = useState('');
+  const [businessType, setBusinessType] = useState('');
+  const [contactNumber, setContactNumber] = useState('');
+  const [productIds, setProductIds] = useState<string[]>([]);
+  const [dealValue, setDealValue] = useState('');
+  const [outcome, setOutcome] = useState<MeetingOutcome>('Interested');
+  const [note, setNote] = useState('');
+  const [nextVisitDays, setNextVisitDays] = useState<number>(0);
+  const [whatsappReminder, setWhatsappReminder] = useState(true);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [submitError, setSubmitError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Search clients when typing
-  const handleClientNameChange = async (query: string) => {
-    setClientName(query);
-    if (errors.clientName) setErrors((prev) => ({ ...prev, clientName: '' }));
+  const products = useQuery({ queryKey: ['products'], queryFn: crmService.getProducts });
 
-    if (query.trim().length > 0) {
-      const results = await crmService.searchClients(query);
-      setClientSuggestions(results);
-      const exactMatch = results.find(
-        (c) => c.name.toLowerCase() === query.trim().toLowerCase()
-      );
-      if (exactMatch) {
-        setIsExistingClient(true);
-        setBusinessType(exactMatch.businessType);
-        if (exactMatch.contactNumber) setContactNumber(exactMatch.contactNumber);
-      } else {
-        setIsExistingClient(false);
-      }
-    } else {
-      setClientSuggestions([]);
-      setIsExistingClient(false);
-    }
-  };
-
-  const selectClient = (client: Client) => {
-    setClientName(client.name);
-    setBusinessType(client.businessType);
-    if (client.contactNumber) setContactNumber(client.contactNumber);
-    setIsExistingClient(true);
-    setClientSuggestions([]);
-  };
-
-  // Toggle products
-  const toggleProduct = (prod: string) => {
-    if (selectedProducts.includes(prod)) {
-      setSelectedProducts(selectedProducts.filter((p) => p !== prod));
-    } else {
-      setSelectedProducts([...selectedProducts, prod]);
-    }
-    if (errors.products) setErrors((prev) => ({ ...prev, products: '' }));
-  };
-
-  // Hold-to-record voice note
-  const startRecording = () => {
-    setIsRecording(true);
-    setRecordingSeconds(0);
-    timerRef.current = setInterval(() => {
-      setRecordingSeconds((prev) => prev + 1);
-    }, 1000);
-  };
-
-  const stopRecording = () => {
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-    setIsRecording(false);
-    updateMeetingDraft({
-      voiceNoteDuration: recordingSeconds || 24,
-      voiceNoteUri: 'mock://recording/voice.m4a',
-    });
-  };
-
-  // Format timer
-  const formatTimer = (secs: number) => {
-    const m = Math.floor(secs / 60);
-    const s = secs % 60;
-    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-  };
-
-  // Add photo or file
-  const handleAttachFile = async () => {
-    try {
-      const doc = await DocumentPicker.getDocumentAsync({
-        type: ['*/*'],
-        copyToCacheDirectory: true,
-      });
-      if (!doc.canceled && doc.assets[0]) {
-        const file = doc.assets[0];
-        setAttachments((prev) => [
-          ...prev,
-          {
-            id: `att-${Date.now()}`,
-            name: file.name,
-            uri: file.uri,
-            type: 'file',
-            size: file.size || 1024,
-          },
-        ]);
-      }
-    } catch (e) {
-      // Fallback
-      setAttachments((prev) => [
-        ...prev,
-        {
-          id: `att-${Date.now()}`,
-          name: 'Shop_Quotation.pdf',
-          uri: 'mock://files/quote.pdf',
-          type: 'file',
-          size: 245000,
-        },
-      ]);
-    }
-  };
-
-  const removeAttachment = (id: string) => {
-    setAttachments((prev) => prev.filter((a) => a.id !== id));
-  };
-
-  // Submit and validate with ZOD
-  const handleSubmit = async () => {
-    const rawData = {
-      clientName,
-      businessType,
-      contactNumber,
-      products: selectedProducts,
-      outcome,
+  // Client search, debounced (wait 300 ms after typing stops). Skipped once a client is picked.
+  const [suggestions, setSuggestions] = useState<Client[]>([]);
+  useEffect(() => {
+    const q = clientName.trim();
+    if (clientId || q.length < 2) return;
+    let stale = false;
+    const t = setTimeout(() => {
+      crmService
+        .searchClients(q)
+        .then((list) => !stale && setSuggestions(list))
+        .catch(() => !stale && setSuggestions([]));
+    }, 300);
+    return () => {
+      stale = true; // ignore answers for an older search text
+      clearTimeout(t);
     };
+  }, [clientName, clientId]);
 
-    const validation = meetingValidationSchema.safeParse(rawData);
-    if (!validation.success) {
+  const visibleSuggestions = clientId || clientName.trim().length < 2 ? [] : suggestions;
+
+  if (!user) return null;
+  if (!checkIn) {
+    return (
+      <EmptyView
+        title="Check in first"
+        description="Start the meeting from the check-in screen so time and location are saved."
+        actionTitle="Go to check-in"
+        onAction={() => router.replace('/(salesman)/checkin')}
+      />
+    );
+  }
+
+  const clearError = (key: string) => errors[key] && setErrors((e) => ({ ...e, [key]: '' }));
+
+  const onClientNameChange = (text: string) => {
+    setClientName(text);
+    setClientId(null); // typing again = not the picked client any more
+    clearError('clientName');
+  };
+
+  const selectClient = (c: Client) => {
+    setClientId(c.id);
+    setClientName(c.name);
+    setBusinessType(c.businessType);
+    setContactNumber(c.contactNumber ?? '');
+  };
+
+  const toggleProduct = (id: string) => {
+    setProductIds((list) => (list.includes(id) ? list.filter((p) => p !== id) : [...list, id]));
+    clearError('productIds');
+  };
+
+  const nextVisit = nextVisitDate(nextVisitDays);
+
+  const handleSubmit = async () => {
+    const parsed = schema.safeParse({ clientName, businessType, contactNumber, productIds });
+    if (!parsed.success) {
       const formErrors: Record<string, string> = {};
-      validation.error.issues.forEach((issue) => {
-        if (issue.path[0]) {
-          formErrors[issue.path[0].toString()] = issue.message;
-        }
+      parsed.error.issues.forEach((i) => {
+        if (i.path[0]) formErrors[String(i.path[0])] = i.message;
       });
-      setErrors(formErrors);
-      return;
+      return setErrors(formErrors);
     }
-
     setErrors({});
+    setSubmitError('');
     setIsSubmitting(true);
-
-    const numericDealValue = parseInt(dealValue.replace(/[^0-9]/g, ''), 10) || 0;
-
-    const newMeeting = await crmService.createMeeting({
-      clientName,
-      businessType,
-      contactNumber,
-      products: selectedProducts,
-      dealValue: numericDealValue,
-      outcome,
-      voiceNoteUrl: 'mock://voice/latest',
-      voiceNoteDuration: recordingSeconds || 24,
-      aiSummary: 'Client ko rate thoda zyada laga. Sample dekhna chahta hai. 7 din baad dobara milne ko bola.',
-      nextVisit,
-      whatsappReminder,
-      attachments,
-      location: { latitude: 19.076, longitude: 72.8777 },
-    });
-
-    updateMeetingDraft({
-      clientName,
-      businessType,
-      contactNumber,
-      products: selectedProducts,
-      dealValue,
-      outcome,
-      nextVisit,
-      whatsappReminder,
-    });
-
-    setIsSubmitting(false);
-    router.push('/(salesman)/meeting-saved');
+    try {
+      const saved = await crmService.createMeeting({
+        clientRequestId,
+        clientId,
+        clientName: clientName.trim(),
+        businessType: businessType.trim(),
+        contactNumber: contactNumber.trim() || null,
+        productIds,
+        dealValue: Number(dealValue.replace(/\D/g, '')) || 0,
+        outcome,
+        note: note.trim() || null,
+        nextVisit: nextVisit?.toISOString() ?? null,
+        whatsappReminder: !!nextVisit && whatsappReminder,
+        checkInAt: checkIn.checkInAt,
+        location: checkIn.location,
+      });
+      setLastSavedMeeting(saved);
+      setCheckIn(null);
+      qc.invalidateQueries({ queryKey: ['home'] });
+      qc.invalidateQueries({ queryKey: ['meetings'] });
+      router.replace('/(salesman)/meeting-saved');
+    } catch (e) {
+      setSubmitError(e instanceof Error ? e.message : 'Could not save. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -239,7 +172,6 @@ export default function MeetingDetailsScreen() {
       style={[styles.container, { backgroundColor: theme.colors.bg }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      {/* Top Navigation */}
       <View style={styles.topBar}>
         <Pressable
           onPress={() => router.back()}
@@ -260,34 +192,36 @@ export default function MeetingDetailsScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* Client Name Input */}
+        {/* Client name + search */}
         <View style={styles.inputGroup}>
           <Field
             label="Client name"
             value={clientName}
-            onChangeText={handleClientNameChange}
-            placeholder="Search or enter client name"
+            onChangeText={onClientNameChange}
+            placeholder="Search your clients or type a new name"
             error={errors.clientName}
           />
-
-          {isExistingClient ? (
+          {clientId ? (
             <Text style={[styles.existingFoundText, { color: theme.colors.accent }]}>
               Existing client found. Details filled in.
             </Text>
+          ) : clientName.trim().length >= 2 && visibleSuggestions.length === 0 ? (
+            <Text style={[styles.existingFoundText, { color: theme.colors.muted }]}>
+              New client: will be added to your list.
+            </Text>
           ) : null}
-
-          {/* Autocomplete suggestions */}
-          {clientSuggestions.length > 0 && !isExistingClient ? (
+          {visibleSuggestions.length > 0 ? (
             <View
               style={[
                 styles.suggestionsBox,
                 { backgroundColor: theme.colors.surface, borderColor: theme.colors.border },
               ]}
             >
-              {clientSuggestions.map((c) => (
+              {visibleSuggestions.map((c) => (
                 <Pressable
                   key={c.id}
                   onPress={() => selectClient(c)}
+                  accessibilityRole="button"
                   style={styles.suggestionItem}
                 >
                   <Text style={[styles.suggestionName, { color: theme.colors.text }]}>
@@ -302,76 +236,79 @@ export default function MeetingDetailsScreen() {
           ) : null}
         </View>
 
-        {/* Business Type */}
         <Field
           label="Business type"
           value={businessType}
-          onChangeText={(val) => {
-            setBusinessType(val);
-            if (errors.businessType) setErrors((prev) => ({ ...prev, businessType: '' }));
+          onChangeText={(v) => {
+            setBusinessType(v);
+            clearError('businessType');
           }}
+          editable={!clientId}
           placeholder="e.g. Kirana store, Pharmacy"
           error={errors.businessType}
         />
 
-        {/* Contact Number */}
         <Field
-          label="Contact number"
+          label="Contact number (optional)"
           value={contactNumber}
-          onChangeText={(val) => {
-            setContactNumber(val);
-            if (errors.contactNumber) setErrors((prev) => ({ ...prev, contactNumber: '' }));
+          onChangeText={(v) => {
+            setContactNumber(v);
+            clearError('contactNumber');
           }}
+          editable={!clientId}
           keyboardType="phone-pad"
-          placeholder="+91 90000 00000"
+          placeholder="98765 43210"
           error={errors.contactNumber}
         />
 
-        {/* Products Discussed Multi-select */}
+        {/* Products */}
         <View style={styles.sectionBlock}>
           <Text style={[styles.sectionLabel, { color: theme.colors.muted }]}>
             Products discussed
           </Text>
-          <View style={styles.chipsRow}>
-            {availableProducts.map((prod) => {
-              const selected = selectedProducts.includes(prod);
-              return (
+          {products.isLoading ? (
+            <Text style={[styles.summaryHint, { color: theme.colors.muted }]}>
+              Loading products...
+            </Text>
+          ) : products.error ? (
+            <Button
+              title="Could not load products. Retry"
+              onPress={() => products.refetch()}
+              variant="outline"
+              size="small"
+            />
+          ) : (
+            <View style={styles.chipsRow}>
+              {(products.data ?? []).map((p) => (
                 <Chip
-                  key={prod}
-                  label={prod}
-                  selected={selected}
-                  onPress={() => toggleProduct(prod)}
+                  key={p.id}
+                  label={p.name}
+                  selected={productIds.includes(p.id)}
+                  onPress={() => toggleProduct(p.id)}
                 />
-              );
-            })}
-          </View>
-          {errors.products ? (
+              ))}
+            </View>
+          )}
+          {errors.productIds ? (
             <Text style={[styles.errorText, { color: theme.colors.adminRedText }]}>
-              {errors.products}
+              {errors.productIds}
             </Text>
           ) : null}
         </View>
 
-        {/* Deal Value */}
         <Field
-          label="Deal value"
-          value={dealValue ? (dealValue.startsWith('₹') ? dealValue : `₹ ${dealValue}`) : ''}
-          onChangeText={(val) => {
-            const clean = val.replace(/[^0-9,]/g, '');
-            setDealValue(clean);
-          }}
-          keyboardType="numeric"
-          placeholder="₹ 0"
+          label="Deal value (₹)"
+          value={dealValue}
+          onChangeText={(v) => setDealValue(v.replace(/\D/g, ''))}
+          keyboardType="number-pad"
+          placeholder="0"
         />
 
-        {/* Meeting Outcome Segmented Control */}
         <View style={styles.sectionBlock}>
-          <Text style={[styles.sectionLabel, { color: theme.colors.muted }]}>
-            Meeting outcome
-          </Text>
+          <Text style={[styles.sectionLabel, { color: theme.colors.muted }]}>Meeting outcome</Text>
           <SegmentedControl<MeetingOutcome>
             value={outcome}
-            onChange={(val) => setOutcome(val)}
+            onChange={setOutcome}
             options={[
               { value: 'Interested', label: 'Interested' },
               { value: 'Closed', label: 'Closed' },
@@ -380,112 +317,90 @@ export default function MeetingDetailsScreen() {
           />
         </View>
 
-        {/* Hold to Record Voice Note */}
+        <Field
+          label="Note (what was discussed)"
+          value={note}
+          onChangeText={setNote}
+          placeholder="e.g. Wants a sample, call back after 7 days"
+          multiline
+          containerStyle={styles.noteContainer}
+          inputStyle={styles.noteInput}
+        />
+
+        {/* Voice note needs file storage (backend TODO). Shown as unavailable, not faked. */}
         <View style={[styles.voiceNoteCard, { backgroundColor: theme.colors.surface }]}>
-          <Pressable
-            onPressIn={startRecording}
-            onPressOut={stopRecording}
-            accessibilityRole="button"
-            accessibilityLabel="Hold to record voice note"
-            style={({ pressed }) => [
-              styles.micButton,
-              {
-                backgroundColor: theme.colors.accent,
-                transform: [{ scale: pressed || isRecording ? 1.08 : 1 }],
-              },
-            ]}
-          >
-            <Mic size={30} color={theme.colors.onAccent} />
-          </Pressable>
-
+          <View style={[styles.micButton, { backgroundColor: theme.colors.surface2 }]}>
+            <Mic size={26} color={theme.colors.muted} />
+          </View>
           <Text style={[styles.recordText, { color: theme.colors.text }]}>
-            {isRecording
-              ? `Recording... · ${formatTimer(recordingSeconds)}`
-              : `Hold to record · ${formatTimer(recordingSeconds)}`}
+            Voice notes and photos: coming soon
           </Text>
-
           <Text style={[styles.summaryHint, { color: theme.colors.muted }]}>
-            Text summary appears after saving
+            Needs file storage on the server. Use the note above for now.
           </Text>
         </View>
 
-        {/* Next Visit Date-Time Picker */}
-        <Field
-          label="Next visit"
-          value={nextVisit}
-          onChangeText={setNextVisit}
-          placeholder="e.g. 15 Nov 2026, 11:00 AM"
-        />
-
-        {/* WhatsApp Reminder Toggle */}
-        <Pressable
-          onPress={() => setWhatsappReminder(!whatsappReminder)}
-          accessibilityRole="checkbox"
-          accessibilityState={{ checked: whatsappReminder }}
-          accessibilityLabel="Toggle WhatsApp reminder"
-          style={({ pressed }) => [
-            styles.whatsappCard,
-            { backgroundColor: theme.colors.surface, opacity: pressed ? 0.85 : 1 },
-          ]}
-        >
-          <View
-            style={[
-              styles.checkCircle,
-              {
-                backgroundColor: whatsappReminder
-                  ? theme.colors.accentSoftBg
-                  : theme.colors.surface2,
-              },
-            ]}
-          >
-            {whatsappReminder ? (
-              <Check size={16} color={theme.colors.accent} strokeWidth={2.5} />
-            ) : null}
-          </View>
-          <Text style={[styles.whatsappText, { color: theme.colors.text }]}>
-            {whatsappReminder ? 'WhatsApp reminder on' : 'WhatsApp reminder off'}
-          </Text>
-        </Pressable>
-
-        {/* Attached Files List */}
-        {attachments.length > 0 ? (
-          <View style={styles.attachmentsList}>
-            {attachments.map((att) => (
-              <View
-                key={att.id}
-                style={[styles.attachmentBadge, { backgroundColor: theme.colors.surface2 }]}
-              >
-                <FileText size={16} color={theme.colors.accent} />
-                <Text
-                  style={[styles.attachmentName, { color: theme.colors.text }]}
-                  numberOfLines={1}
-                >
-                  {att.name}
-                </Text>
-                <Pressable
-                  onPress={() => removeAttachment(att.id)}
-                  accessibilityRole="button"
-                  accessibilityLabel="Remove attached file"
-                >
-                  <X size={14} color={theme.colors.muted} />
-                </Pressable>
-              </View>
+        {/* Next visit */}
+        <View style={styles.sectionBlock}>
+          <Text style={[styles.sectionLabel, { color: theme.colors.muted }]}>Next visit</Text>
+          <View style={styles.chipsRow}>
+            {NEXT_VISIT_OPTIONS.map((o) => (
+              <Chip
+                key={o.label}
+                label={o.label}
+                selected={nextVisitDays === o.days}
+                onPress={() => setNextVisitDays(o.days)}
+              />
             ))}
           </View>
-        ) : null}
+          {nextVisit ? (
+            <Text style={[styles.summaryHint, { color: theme.colors.muted }]}>
+              Follow-up on {formatDateTime(nextVisit)}
+            </Text>
+          ) : null}
+        </View>
 
-        {/* Add photo or file button */}
-        <Button
-          title="Add photo or file"
-          onPress={handleAttachFile}
-          variant="secondary"
-          size="compact"
-          icon={<Paperclip size={18} color={theme.colors.text} />}
-        />
+        {nextVisit ? (
+          <Pressable
+            onPress={() => setWhatsappReminder(!whatsappReminder)}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: whatsappReminder }}
+            accessibilityLabel="WhatsApp reminder"
+            style={({ pressed }) => [
+              styles.whatsappCard,
+              { backgroundColor: theme.colors.surface, opacity: pressed ? 0.85 : 1 },
+            ]}
+          >
+            <View
+              style={[
+                styles.checkCircle,
+                {
+                  backgroundColor: whatsappReminder
+                    ? theme.colors.accentSoftBg
+                    : theme.colors.surface2,
+                },
+              ]}
+            >
+              {whatsappReminder ? (
+                <Check size={16} color={theme.colors.accent} strokeWidth={2.5} />
+              ) : null}
+            </View>
+            <Text style={[styles.whatsappText, { color: theme.colors.text }]}>
+              {whatsappReminder ? 'WhatsApp reminder on' : 'WhatsApp reminder off'}
+            </Text>
+          </Pressable>
+        ) : null}
 
         <View style={styles.spacer} />
 
-        {/* Sticky Submit Button */}
+        {submitError ? (
+          <Text
+            accessibilityRole="alert"
+            style={[styles.errorText, { color: theme.colors.adminRedText }]}
+          >
+            {submitError}
+          </Text>
+        ) : null}
         <Button
           title="Submit"
           onPress={handleSubmit}
@@ -500,6 +415,8 @@ export default function MeetingDetailsScreen() {
 }
 
 const styles = StyleSheet.create({
+  noteContainer: {},
+  noteInput: { minHeight: 76, textAlignVertical: 'top' },
   container: {
     flex: 1,
   },
@@ -519,7 +436,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   barTitle: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 15,
   },
   scrollContent: {
@@ -533,7 +450,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   existingFoundText: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 13,
     marginTop: 2,
   },
@@ -550,19 +467,18 @@ const styles = StyleSheet.create({
     borderBottomColor: '#2A2B2E',
   },
   suggestionName: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.medium,
     fontSize: 14,
-    fontWeight: '500',
   },
   suggestionSub: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 12,
   },
   sectionBlock: {
     gap: 8,
   },
   sectionLabel: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 13,
   },
   chipsRow: {
@@ -571,7 +487,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   errorText: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 12,
     marginTop: 4,
   },
@@ -589,12 +505,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   recordText: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.semibold,
     fontSize: 15,
-    fontWeight: '600',
   },
   summaryHint: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 13,
     textAlign: 'center',
   },
@@ -613,7 +528,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   whatsappText: {
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 15,
   },
   attachmentsList: {
@@ -629,7 +544,7 @@ const styles = StyleSheet.create({
   },
   attachmentName: {
     flex: 1,
-    fontFamily: 'Inter',
+    fontFamily: fonts.regular,
     fontSize: 13,
   },
   spacer: {
