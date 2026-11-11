@@ -1,17 +1,24 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Platform, KeyboardAvoidingView, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
-import { MapPin, ShieldCheck, Check } from 'lucide-react-native';
-import { useTheme } from '../../src/theme';
-import { Button, Field, Card } from '../../src/components';
-import { useAppStore } from '../../src/store';
-import { APP_NAME } from '../../src/mocks/data';
+import { MapPin, Check } from 'lucide-react-native';
+import { useTheme } from '../src/theme';
+import { Button, Field, SegmentedControl } from '../src/components';
+import { useAppStore } from '../src/store';
+import { APP_NAME, adminUser, currentUser } from '../src/mocks/data';
+import type { Role } from '../src/types';
+
+const ROLE_OPTIONS: { value: Role; label: string }[] = [
+  { value: 'salesman', label: 'Salesman' },
+  { value: 'admin', label: 'Manager' },
+];
 
 export default function LoginScreen() {
   const { theme } = useTheme();
   const router = useRouter();
-  const { setIsLoggedIn, setRole } = useAppStore();
+  const { login } = useAppStore();
 
+  const [loginAs, setLoginAs] = useState<Role>('salesman');
   const [phoneOrId, setPhoneOrId] = useState('+91 98765 43210');
   const [otpSent, setOtpSent] = useState(false);
   const [otp, setOtp] = useState('');
@@ -33,9 +40,11 @@ export default function LoginScreen() {
       return;
     }
     setError('');
-    setIsLoggedIn(true);
-    setRole('salesman');
-    router.replace('/(salesman)/(tabs)');
+    // MOCK: the chosen tab decides the role. With a real backend, the server must
+    // return the user (and role) for this phone number after OTP check.
+    login(loginAs === 'admin' ? adminUser : currentUser);
+    // '/' redirects by role after re-render, once the route guard allows it.
+    router.replace('/');
   };
 
   return (
@@ -43,17 +52,11 @@ export default function LoginScreen() {
       style={[styles.container, { backgroundColor: theme.colors.bg }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
-      >
+      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         <View style={styles.content}>
           {/* App Logo */}
           <View
-            style={[
-              styles.logoBadge,
-              { backgroundColor: theme.colors.accent, borderRadius: 16 },
-            ]}
+            style={[styles.logoBadge, { backgroundColor: theme.colors.accent, borderRadius: 16 }]}
           >
             <MapPin size={28} color={theme.colors.onAccent} strokeWidth={2.2} />
           </View>
@@ -61,16 +64,18 @@ export default function LoginScreen() {
           {/* Heading */}
           <View style={styles.header}>
             <Text style={[styles.title, { color: theme.colors.text }]}>
-              Welcome in,{'\n'}{APP_NAME}
+              Welcome in,{'\n'}
+              {APP_NAME}
             </Text>
             <Text style={[styles.subtitle, { color: theme.colors.muted }]}>
-              Sign in to start today's visits
+              Sign in to start today&apos;s visits
             </Text>
           </View>
 
           {/* Inputs & Actions */}
           {!otpSent ? (
             <View style={styles.form}>
+              <SegmentedControl options={ROLE_OPTIONS} value={loginAs} onChange={setLoginAs} />
               <Field
                 label="Phone number or employee ID"
                 value={phoneOrId}
@@ -84,12 +89,7 @@ export default function LoginScreen() {
                 placeholder="+91 98765 43210"
               />
 
-              <Button
-                title="Send OTP"
-                onPress={handleSendOtp}
-                variant="primary"
-                size="normal"
-              />
+              <Button title="Send OTP" onPress={handleSendOtp} variant="primary" size="normal" />
             </View>
           ) : (
             <View style={styles.form}>
@@ -107,6 +107,9 @@ export default function LoginScreen() {
                 placeholder="1234"
               />
 
+              <Text style={[styles.hint, { color: theme.colors.muted }]}>
+                Signing in as {loginAs === 'admin' ? 'Manager' : 'Salesman'}
+              </Text>
               <Button
                 title="Verify & Sign in"
                 onPress={handleVerifyOtp}
@@ -228,4 +231,3 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 });
-

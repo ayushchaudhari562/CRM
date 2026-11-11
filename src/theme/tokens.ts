@@ -1,51 +1,13 @@
-export const baseColors = {
-  bg: '#0B0C0D',
-  surface: '#17181A',
-  surface2: '#1F2022',
-  border: '#2A2B2E',
-  track: '#3A3C40',
-  neutral: '#5A5C61',
-  text: '#F4F4F2',
-  muted: '#9EA1A6',
-  accent: '#7FC08A', // salesman app + admin mobile
-  onAccent: '#0B0C0D',
-  accentSoftBg: '#1F3A27', // check circles
-  adminRed: '#D13438', // admin web bento fill
-  adminRedText: '#FF6B6F', // red used as text on dark
-} as const;
+// Single source of truth: all base tokens come from starter/theme.ts.
+import { colors as baseColors, radius, space, font, type, minTouch } from '../../starter/theme';
 
-export const radius = {
-  field: 14,
-  chip: 20,
-  card: 22,
-  tile: 24,
-  sheet: 28,
-  pill: 26,
-} as const;
+export { baseColors, radius, space, font, type, minTouch };
 
-export const space = {
-  screen: 20,
-  gap: 16,
-  tile: 24,
+// Extra colors for the red (admin web) variant. Not in starter/theme.ts.
+const redVariant = {
+  onAccent: '#FFFFFF',
+  accentSoftBg: '#4D1B1E',
 } as const;
-
-export const font = {
-  family: 'Inter',
-  regular: '400',
-  medium: '500',
-  semibold: '600',
-} as const;
-
-export const type = {
-  h1: 30,
-  title: 18,
-  body: 15,
-  label: 13,
-  caption: 12,
-  hero: 52,
-} as const;
-
-export const minTouch = 44;
 
 export type ThemeVariant = 'green' | 'red';
 
@@ -80,8 +42,8 @@ export function createTheme(variant: ThemeVariant = 'green'): Theme {
     colors: {
       ...baseColors,
       accent: isRed ? baseColors.adminRed : baseColors.accent,
-      onAccent: isRed ? '#FFFFFF' : baseColors.onAccent,
-      accentSoftBg: isRed ? '#4D1B1E' : baseColors.accentSoftBg,
+      onAccent: isRed ? redVariant.onAccent : baseColors.onAccent,
+      accentSoftBg: isRed ? redVariant.accentSoftBg : baseColors.accentSoftBg,
     },
     radius,
     space,

@@ -10,6 +10,7 @@ export interface Salesman {
 
 export interface Client {
   id: string;
+  salesmanId: string; // owner: a salesman only sees their own clients
   name: string;
   businessType: string;
   contactNumber?: string;
@@ -40,6 +41,7 @@ export interface Meeting {
 
 export interface Reminder {
   id: string;
+  salesmanId: string;
   meetingId: string;
   clientName: string;
   type: 'Follow-up' | 'Call back' | 'Visit';

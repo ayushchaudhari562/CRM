@@ -28,7 +28,7 @@ export default function SalesmanMapTab() {
 
       <View style={styles.listSection}>
         <Card surface="surface" style={styles.legendCard}>
-          <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Today's Route</Text>
+          <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Today&apos;s Route</Text>
           <Text style={[styles.cardSub, { color: theme.colors.muted }]}>
             3 of 8 clients visited · Current area: Zone B
           </Text>

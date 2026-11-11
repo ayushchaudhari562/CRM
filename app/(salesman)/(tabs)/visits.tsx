@@ -1,16 +1,18 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, FlatList, Pressable } from 'react-native';
+import { View, Text, StyleSheet, FlatList } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
-import { CheckCircle2, Clock, Calendar, ChevronRight } from 'lucide-react-native';
+import { Clock } from 'lucide-react-native';
 import { useTheme } from '../../../src/theme';
 import { Chip, LoadingView, EmptyView, ErrorView } from '../../../src/components';
 import { crmService } from '../../../src/services';
+import { useAppStore } from '../../../src/store';
 import type { Meeting } from '../../../src/types';
 
 export default function VisitsScreen() {
   const { theme } = useTheme();
   const router = useRouter();
+  const { user } = useAppStore();
   const [filter, setFilter] = useState<'Today' | 'Week' | 'All'>('Today');
 
   const {
@@ -19,8 +21,8 @@ export default function VisitsScreen() {
     error,
     refetch,
   } = useQuery<Meeting[]>({
-    queryKey: ['meetings'],
-    queryFn: () => crmService.getMeetings(),
+    queryKey: ['meetings', user.id],
+    queryFn: () => crmService.getMeetings(user.id),
   });
 
   const getFilteredMeetings = () => {
@@ -88,15 +90,12 @@ export default function VisitsScreen() {
             const isInterested = item.outcome === 'Interested';
 
             return (
-              <Pressable
-                onPress={() => router.push(`/(admin)/report/${item.id}` as any)}
-                style={({ pressed }) => [
+              // Not tappable yet: the salesman visit detail screen comes in step 6.
+              // (Before, this opened the ADMIN report, which the role guard now blocks.)
+              <View
+                style={[
                   styles.visitCard,
-                  {
-                    backgroundColor: theme.colors.surface,
-                    borderColor: theme.colors.border,
-                    opacity: pressed ? 0.85 : 1,
-                  },
+                  { backgroundColor: theme.colors.surface, borderColor: theme.colors.border },
                 ]}
               >
                 <View style={styles.cardHeader}>
@@ -155,9 +154,8 @@ export default function VisitsScreen() {
                     </Text>
                   ) : null}
 
-                  <ChevronRight size={16} color={theme.colors.muted} style={{ marginLeft: 'auto' }} />
                 </View>
-              </Pressable>
+              </View>
             );
           }}
         />

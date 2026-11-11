@@ -31,47 +31,56 @@ export class CrmService {
     return { ...adminOverview };
   }
 
-  async getClients(): Promise<Client[]> {
+  // --- Salesman scope: salesmanId is required so a salesman only ever gets their own data.
+  // NOTE: this is UX only. The real backend must enforce it from the auth token.
+
+  async getClients(salesmanId: string): Promise<Client[]> {
     await delay(300);
-    return [...clients];
+    return clients.filter((c) => c.salesmanId === salesmanId);
   }
 
-  async getClient(id: string): Promise<Client | null> {
+  async getClient(salesmanId: string, id: string): Promise<Client | null> {
     await delay(300);
-    return clients.find((c) => c.id === id) ?? null;
+    return clients.find((c) => c.id === id && c.salesmanId === salesmanId) ?? null;
   }
 
-  async searchClients(query: string): Promise<Client[]> {
+  async searchClients(salesmanId: string, query: string): Promise<Client[]> {
     await delay(300);
-    const q = query.toLowerCase();
-    return clients.filter((c) => c.name.toLowerCase().includes(q));
+    const q = query.trim().toLowerCase();
+    return clients.filter((c) => c.salesmanId === salesmanId && c.name.toLowerCase().includes(q));
   }
 
-  async getMeetings(salesmanId?: string): Promise<Meeting[]> {
+  async getMeetings(salesmanId: string): Promise<Meeting[]> {
     await delay(300);
-    const list = [...meetings];
-    if (salesmanId) {
-      return list.filter((m) => m.salesmanId === salesmanId);
-    }
-    return list;
+    return meetings.filter((m) => m.salesmanId === salesmanId);
+  }
+
+  async getReminders(salesmanId: string): Promise<Reminder[]> {
+    await delay(300);
+    return reminders.filter((r) => r.salesmanId === salesmanId);
+  }
+
+  async createMeeting(
+    salesmanId: string,
+    input: Omit<Meeting, 'id' | 'salesmanId' | 'createdAt' | 'updatedAt'>,
+  ): Promise<Meeting> {
+    await delay(500);
+    const now = new Date().toISOString();
+    const meeting: Meeting = { ...input, id: `m-${Date.now()}`, salesmanId, createdAt: now, updatedAt: now };
+    meetings.push(meeting);
+    return meeting;
+  }
+
+  // --- Admin scope: sees everything.
+
+  async getAllMeetings(): Promise<Meeting[]> {
+    await delay(300);
+    return [...meetings];
   }
 
   async getMeeting(id: string): Promise<Meeting | null> {
     await delay(300);
     return meetings.find((m) => m.id === id) ?? null;
-  }
-
-  async createMeeting(input: Omit<Meeting, 'id' | 'salesmanId' | 'createdAt' | 'updatedAt'>): Promise<Meeting> {
-    await delay(500);
-    const meeting: Meeting = {
-      ...input,
-      id: `m-${Date.now()}`,
-      salesmanId: 'sm-1',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    meetings.push(meeting);
-    return meeting;
   }
 
   async updateMeeting(id: string, patch: Partial<Meeting>): Promise<Meeting | null> {
@@ -80,11 +89,6 @@ export class CrmService {
     if (idx === -1) return null;
     meetings[idx] = { ...meetings[idx], ...patch, updatedAt: new Date().toISOString() };
     return meetings[idx];
-  }
-
-  async getReminders(salesmanId?: string): Promise<Reminder[]> {
-    await delay(300);
-    return [...reminders];
   }
 
   async getSalesmanProgress(): Promise<SalesmanProgress[]> {

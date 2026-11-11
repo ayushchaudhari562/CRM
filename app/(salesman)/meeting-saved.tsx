@@ -83,7 +83,7 @@ export default function MeetingSavedScreen() {
               <Check size={16} color={theme.colors.accent} strokeWidth={2.5} />
             </View>
             <Text style={[styles.actionText, { color: theme.colors.text }]}>
-              Added to today's visit count
+              Added to today&apos;s visit count
             </Text>
           </View>
         </View>

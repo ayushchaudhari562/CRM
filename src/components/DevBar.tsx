@@ -1,39 +1,42 @@
 import React, { useState } from 'react';
 import { View, Text, Pressable, StyleSheet, ScrollView } from 'react-native';
-import { useRouter, usePathname } from 'expo-router';
+import { useRouter, usePathname, type Href } from 'expo-router';
 import { Sliders, Wifi, WifiOff } from 'lucide-react-native';
 import { useAppStore } from '../store';
+import type { Role } from '../types';
 import { useTheme } from '../theme';
 
 export const DevBar: React.FC = () => {
   const router = useRouter();
   const pathname = usePathname();
-  const { role, setRole, offlineMode, toggleOffline } = useAppStore();
+  const { role, setRole, setIsLoggedIn, offlineMode, toggleOffline } = useAppStore();
   const { theme, setThemeVariant } = useTheme();
   const [expanded, setExpanded] = useState(false);
 
   const screens = [
-    { label: '01 Login', path: '/(salesman)/login', role: 'salesman' as const },
-    { label: '02 Home', path: '/(salesman)/(tabs)', role: 'salesman' as const },
-    { label: '03 Check-in', path: '/(salesman)/checkin', role: 'salesman' as const },
-    { label: '04 Details', path: '/(salesman)/meeting-details', role: 'salesman' as const },
-    { label: '05 Saved', path: '/(salesman)/meeting-saved', role: 'salesman' as const },
-    { label: 'Visits List', path: '/(salesman)/(tabs)/visits', role: 'salesman' as const },
-    { label: '06 Admin Home', path: '/(admin)/(tabs)', role: 'admin' as const },
-    { label: '07 Live Mon', path: '/(admin)/(tabs)/monitoring', role: 'admin' as const },
-    { label: '08 Report', path: '/(admin)/report/m-3', role: 'admin' as const },
-    { label: '09 Web Bento', path: '/(admin)/bento', role: 'admin' as const, isRed: true },
+    { label: '01 Login', path: '/login' as Href, role: 'salesman' as const },
+    { label: '02 Home', path: '/(salesman)/(tabs)' as Href, role: 'salesman' as const },
+    { label: '03 Check-in', path: '/(salesman)/checkin' as Href, role: 'salesman' as const },
+    { label: '04 Details', path: '/(salesman)/meeting-details' as Href, role: 'salesman' as const },
+    { label: '05 Saved', path: '/(salesman)/meeting-saved' as Href, role: 'salesman' as const },
+    { label: 'Visits List', path: '/(salesman)/(tabs)/visits' as Href, role: 'salesman' as const },
+    { label: '06 Admin Home', path: '/(admin)/(tabs)' as Href, role: 'admin' as const },
+    { label: '07 Live Mon', path: '/(admin)/(tabs)/monitoring' as Href, role: 'admin' as const },
+    { label: '08 Report', path: '/(admin)/report/m-3' as Href, role: 'admin' as const },
+    { label: '09 Web Bento', path: '/(admin)/bento' as Href, role: 'admin' as const, isRed: true },
   ];
 
-  const handleNavigate = (s: (typeof screens)[0]) => {
-    setRole(s.role);
-    if (s.isRed) {
-      setThemeVariant('red');
-    } else {
-      setThemeVariant('green');
-    }
-    router.push(s.path as any);
+  // Dev only: fake a login as `nextRole`, then open `path`.
+  // Navigation waits one tick so the route guards in app/_layout.tsx see the new state first.
+  const openAs = (nextRole: Role, path: Href, red = false) => {
+    const isLogin = path === '/login';
+    setRole(nextRole);
+    setIsLoggedIn(!isLogin);
+    setThemeVariant(red ? 'red' : 'green');
+    setTimeout(() => router.push(path), 0);
   };
+
+  const handleNavigate = (s: (typeof screens)[0]) => openAs(s.role, s.path, s.isRed);
 
   return (
     <View style={styles.wrapper}>
@@ -56,11 +59,7 @@ export const DevBar: React.FC = () => {
         {/* Quick Role switch */}
         <View style={[styles.roleSwitch, { backgroundColor: theme.colors.surface2 }]}>
           <Pressable
-            onPress={() => {
-              setRole('salesman');
-              setThemeVariant('green');
-              router.push('/(salesman)/(tabs)');
-            }}
+            onPress={() => openAs('salesman', '/(salesman)/(tabs)')}
             accessibilityRole="button"
             accessibilityLabel="Switch to Salesman role"
             style={[
@@ -79,10 +78,7 @@ export const DevBar: React.FC = () => {
           </Pressable>
 
           <Pressable
-            onPress={() => {
-              setRole('admin');
-              router.push('/(admin)/(tabs)');
-            }}
+            onPress={() => openAs('admin', '/(admin)/(tabs)')}
             accessibilityRole="button"
             accessibilityLabel="Switch to Admin role"
             style={[

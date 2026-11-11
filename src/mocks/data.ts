@@ -17,14 +17,21 @@ export const currentUser: Salesman = {
   phone: '+91 98765 43210',
 };
 
+export const adminUser: Salesman = {
+  id: 'ad-1',
+  name: 'Manager',
+  initials: 'MG',
+  role: 'admin',
+};
+
 export const clients: Client[] = [
-  { id: 'c-1', name: 'Client A', businessType: 'Kirana store', contactNumber: '+91 90000 00001' },
-  { id: 'c-2', name: 'Client B', businessType: 'Hardware shop', contactNumber: '+91 90000 00002' },
-  { id: 'c-3', name: 'Client C', businessType: 'Pharmacy', contactNumber: '+91 90000 00003' },
-  { id: 'c-4', name: 'Client D', businessType: 'Kirana store', contactNumber: '+91 90000 00004' },
-  { id: 'c-5', name: 'Client E', businessType: 'Hardware shop', contactNumber: '+91 90000 00005' },
-  { id: 'c-6', name: 'Client F', businessType: 'Pharmacy', contactNumber: '+91 90000 00006' },
-  { id: 'c-7', name: 'Client G', businessType: 'Stationery', contactNumber: '+91 90000 00007' },
+  { id: 'c-1', salesmanId: 'sm-1', name: 'Client A', businessType: 'Kirana store', contactNumber: '+91 90000 00001' },
+  { id: 'c-2', salesmanId: 'sm-1', name: 'Client B', businessType: 'Hardware shop', contactNumber: '+91 90000 00002' },
+  { id: 'c-3', salesmanId: 'sm-1', name: 'Client C', businessType: 'Pharmacy', contactNumber: '+91 90000 00003' },
+  { id: 'c-4', salesmanId: 'sm-1', name: 'Client D', businessType: 'Kirana store', contactNumber: '+91 90000 00004' },
+  { id: 'c-5', salesmanId: 'sm-1', name: 'Client E', businessType: 'Hardware shop', contactNumber: '+91 90000 00005' },
+  { id: 'c-6', salesmanId: 'sm-2', name: 'Client F', businessType: 'Pharmacy', contactNumber: '+91 90000 00006' },
+  { id: 'c-7', salesmanId: 'sm-2', name: 'Client G', businessType: 'Stationery', contactNumber: '+91 90000 00007' },
 ];
 
 export const products = ['Product 1', 'Product 2', 'Product 3', 'Product 4', 'Product 5'];
@@ -90,7 +97,7 @@ export const meetings: Meeting[] = [
   },
   {
     id: 'm-4',
-    salesmanId: 'sm-1',
+    salesmanId: 'sm-2',
     clientName: 'Client F',
     businessType: 'Pharmacy',
     contactNumber: '+91 90000 00006',
@@ -112,6 +119,7 @@ export const meetings: Meeting[] = [
 export const reminders: Reminder[] = [
   {
     id: 'r-1',
+    salesmanId: 'sm-1',
     meetingId: 'm-3',
     clientName: 'Client A',
     type: 'Follow-up',
@@ -120,14 +128,16 @@ export const reminders: Reminder[] = [
   },
   {
     id: 'r-2',
+    salesmanId: 'sm-2',
     meetingId: 'm-4',
-    clientName: 'Client B',
+    clientName: 'Client F',
     type: 'Call back',
     time: '1:30 PM',
     status: 'Due',
   },
   {
     id: 'r-3',
+    salesmanId: 'sm-1',
     meetingId: 'm-1',
     clientName: 'Client C',
     type: 'Visit',
@@ -137,10 +147,10 @@ export const reminders: Reminder[] = [
 ];
 
 export const adminSalesmen: Salesman[] = [
-  { id: 'sm-1', name: 'Salesman A', initials: 'SA', role: 'admin' },
-  { id: 'sm-2', name: 'Salesman B', initials: 'SB', role: 'admin' },
-  { id: 'sm-3', name: 'Salesman C', initials: 'SC', role: 'admin' },
-  { id: 'sm-4', name: 'Salesman D', initials: 'SD', role: 'admin' },
+  { id: 'sm-1', name: 'Salesman A', initials: 'SA', role: 'salesman' },
+  { id: 'sm-2', name: 'Salesman B', initials: 'SB', role: 'salesman' },
+  { id: 'sm-3', name: 'Salesman C', initials: 'SC', role: 'salesman' },
+  { id: 'sm-4', name: 'Salesman D', initials: 'SD', role: 'salesman' },
 ];
 
 export const salesmanProgress: SalesmanProgress[] = [

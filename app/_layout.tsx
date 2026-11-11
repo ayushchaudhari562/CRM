@@ -10,7 +10,7 @@ import {
   Inter_500Medium,
   Inter_600SemiBold,
 } from '@expo-google-fonts/inter';
-import { ThemeProvider, useTheme } from '../src/theme';
+import { ThemeProvider, useTheme, baseColors } from '../src/theme';
 import { useAppStore } from '../src/store';
 import { DevBar, OfflineBanner } from '../src/components';
 
@@ -26,7 +26,7 @@ const queryClient = new QueryClient({
 
 function AppContent() {
   const { theme } = useTheme();
-  const { offlineMode } = useAppStore();
+  const { offlineMode, isLoggedIn, role } = useAppStore();
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.bg }]}>
@@ -42,8 +42,17 @@ function AppContent() {
           }}
         >
           <Stack.Screen name="index" />
-          <Stack.Screen name="(salesman)" />
-          <Stack.Screen name="(admin)" />
+          {/* Route guards: a screen group is only reachable when its guard is true.
+              Note: this is UX only. Real access control must be done by the backend. */}
+          <Stack.Protected guard={!isLoggedIn}>
+            <Stack.Screen name="login" />
+          </Stack.Protected>
+          <Stack.Protected guard={isLoggedIn && role === 'salesman'}>
+            <Stack.Screen name="(salesman)" />
+          </Stack.Protected>
+          <Stack.Protected guard={isLoggedIn && role === 'admin'}>
+            <Stack.Screen name="(admin)" />
+          </Stack.Protected>
         </Stack>
       </View>
     </SafeAreaView>
@@ -59,8 +68,8 @@ export default function RootLayout() {
 
   if (!fontsLoaded) {
     return (
-      <View style={[styles.loading, { backgroundColor: '#0B0C0D' }]}>
-        <ActivityIndicator size="large" color="#7FC08A" />
+      <View style={[styles.loading, { backgroundColor: baseColors.bg }]}>
+        <ActivityIndicator size="large" color={baseColors.accent} />
       </View>
     );
   }

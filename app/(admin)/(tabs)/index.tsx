@@ -2,15 +2,17 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, Modal } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
-import { Plus, X } from 'lucide-react-native';
+import { X, LogOut } from 'lucide-react-native';
 import { useTheme } from '../../../src/theme';
 import { TickRing, Button, Field, LoadingView, ErrorView } from '../../../src/components';
 import { crmService } from '../../../src/services';
 import type { AdminOverview } from '../../../src/types';
+import { useAppStore } from '../../../src/store';
 
 export default function AdminHomeScreen() {
   const { theme } = useTheme();
   const router = useRouter();
+  const { logout } = useAppStore();
   const [showAddModal, setShowAddModal] = useState(false);
   const [newSalesmanName, setNewSalesmanName] = useState('');
   const [newSalesmanPhone, setNewSalesmanPhone] = useState('');
@@ -30,12 +32,7 @@ export default function AdminHomeScreen() {
   }
 
   if (error || !overview) {
-    return (
-      <ErrorView
-        message="Could not load admin stats"
-        onRetry={() => refetch()}
-      />
-    );
+    return <ErrorView message="Could not load admin stats" onRetry={() => refetch()} />;
   }
 
   const handleAddSalesman = () => {
@@ -54,22 +51,28 @@ export default function AdminHomeScreen() {
       <View style={styles.topSection}>
         {/* Header date and Add salesman */}
         <View style={styles.topRow}>
-          <Text style={[styles.dateText, { color: theme.colors.muted }]}>
-            Tuesday, 10 Nov
-          </Text>
-          <Pressable
-            onPress={() => setShowAddModal(true)}
-            accessibilityRole="button"
-            accessibilityLabel="Add salesman"
-            style={[
-              styles.addBtn,
-              { borderColor: theme.colors.border },
-            ]}
-          >
-            <Text style={[styles.addBtnText, { color: theme.colors.text }]}>
-              + Add salesman
-            </Text>
-          </Pressable>
+          <Text style={[styles.dateText, { color: theme.colors.muted }]}>Tuesday, 10 Nov</Text>
+          <View style={styles.topActions}>
+            <Pressable
+              onPress={() => setShowAddModal(true)}
+              accessibilityRole="button"
+              accessibilityLabel="Add salesman"
+              style={[styles.addBtn, { borderColor: theme.colors.border }]}
+            >
+              <Text style={[styles.addBtnText, { color: theme.colors.text }]}>+ Add salesman</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => {
+                logout();
+                router.replace('/'); // '/' redirects to /login
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Sign out"
+              style={[styles.iconBtn, { borderColor: theme.colors.border }]}
+            >
+              <LogOut size={16} color={theme.colors.muted} />
+            </Pressable>
+          </View>
         </View>
 
         {/* Welcome Manager heading */}
@@ -77,9 +80,7 @@ export default function AdminHomeScreen() {
           <Text style={[styles.heading, { color: theme.colors.text }]}>
             Welcome in,{'\n'}Manager
           </Text>
-          <Text style={[styles.salesmanCount, { color: theme.colors.muted }]}>
-            12 salesmen
-          </Text>
+          <Text style={[styles.salesmanCount, { color: theme.colors.muted }]}>12 salesmen</Text>
         </View>
 
         {/* 86 Visits Today Ring */}
@@ -105,19 +106,12 @@ export default function AdminHomeScreen() {
           },
         ]}
       >
-        <Text style={[styles.sheetTitle, { color: theme.colors.text }]}>
-          Today's summary
-        </Text>
+        <Text style={[styles.sheetTitle, { color: theme.colors.text }]}>Today&apos;s summary</Text>
 
         {/* 2 Tiles: Visits and Deals */}
         <View style={styles.metricsRow}>
           {/* Tile 1 */}
-          <View
-            style={[
-              styles.metricTile,
-              { backgroundColor: theme.colors.surface2 },
-            ]}
-          >
+          <View style={[styles.metricTile, { backgroundColor: theme.colors.surface2 }]}>
             <Text style={[styles.metricNumber, { color: theme.colors.text }]}>
               {overview.visitsDone}
             </Text>
@@ -132,12 +126,7 @@ export default function AdminHomeScreen() {
           </View>
 
           {/* Tile 2 */}
-          <View
-            style={[
-              styles.metricTile,
-              { backgroundColor: theme.colors.surface2 },
-            ]}
-          >
+          <View style={[styles.metricTile, { backgroundColor: theme.colors.surface2 }]}>
             <Text style={[styles.metricNumber, { color: theme.colors.text }]}>
               {overview.dealsClosed}
             </Text>
@@ -283,6 +272,18 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter',
     fontSize: 14,
   },
+  topActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  iconBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   addBtn: {
     height: 44,
     paddingHorizontal: 16,
@@ -394,4 +395,3 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
-

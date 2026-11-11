@@ -399,7 +399,7 @@ export default function AdminWebBentoScreen() {
               </View>
             </View>
 
-            {/* Tile 8: Today's progress */}
+            {/* Tile 8: Today&apos;s progress */}
             <View
               style={[
                 styles.tile,
@@ -411,7 +411,7 @@ export default function AdminWebBentoScreen() {
               ]}
             >
               <Text style={[styles.tileTitle, { color: theme.colors.text, marginBottom: 12 }]}>
-                Today's progress
+                Today&apos;s progress
               </Text>
               <View style={styles.progressRows}>
                 {salesmanProgress.map((s) => (

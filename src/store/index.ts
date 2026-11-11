@@ -52,6 +52,8 @@ interface AppState {
   // Actions
   setRole: (role: Role) => void;
   setIsLoggedIn: (loggedIn: boolean) => void;
+  login: (user: Salesman) => void; // role comes from the user, never chosen separately
+  logout: () => void;
   togglePunchIn: () => void;
   toggleOffline: () => void;
   updateMeetingDraft: (patch: Partial<MeetingDraft>) => void;
@@ -60,7 +62,7 @@ interface AppState {
 
 export const useAppStore = create<AppState>((set) => ({
   role: 'salesman',
-  isLoggedIn: true,
+  isLoggedIn: false, // app always starts at login
   user: currentUser,
   isPunchedIn: false,
   punchInTime: null,
@@ -69,6 +71,8 @@ export const useAppStore = create<AppState>((set) => ({
 
   setRole: (role) => set({ role }),
   setIsLoggedIn: (isLoggedIn) => set({ isLoggedIn }),
+  login: (user) => set({ user, role: user.role, isLoggedIn: true }),
+  logout: () => set({ isLoggedIn: false, isPunchedIn: false, punchInTime: null }),
   togglePunchIn: () =>
     set((state) => ({
       isPunchedIn: !state.isPunchedIn,

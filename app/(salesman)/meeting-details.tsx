@@ -37,7 +37,7 @@ const meetingValidationSchema = z.object({
 export default function MeetingDetailsScreen() {
   const { theme } = useTheme();
   const router = useRouter();
-  const { meetingDraft, updateMeetingDraft } = useAppStore();
+  const { user, meetingDraft, updateMeetingDraft } = useAppStore();
 
   // Form State
   const [clientName, setClientName] = useState(meetingDraft.clientName || 'Client A');
@@ -59,7 +59,7 @@ export default function MeetingDetailsScreen() {
   // Voice note recording state
   const [isRecording, setIsRecording] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(24);
-  const timerRef = useRef<any>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Autocomplete state
   const [clientSuggestions, setClientSuggestions] = useState<Client[]>([]);
@@ -73,7 +73,7 @@ export default function MeetingDetailsScreen() {
     if (errors.clientName) setErrors((prev) => ({ ...prev, clientName: '' }));
 
     if (query.trim().length > 0) {
-      const results = await crmService.searchClients(query);
+      const results = await crmService.searchClients(user.id, query);
       setClientSuggestions(results);
       const exactMatch = results.find(
         (c) => c.name.toLowerCase() === query.trim().toLowerCase()
@@ -203,7 +203,7 @@ export default function MeetingDetailsScreen() {
 
     const numericDealValue = parseInt(dealValue.replace(/[^0-9]/g, ''), 10) || 0;
 
-    const newMeeting = await crmService.createMeeting({
+    const newMeeting = await crmService.createMeeting(user.id, {
       clientName,
       businessType,
       contactNumber,

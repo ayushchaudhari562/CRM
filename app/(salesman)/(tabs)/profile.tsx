@@ -1,7 +1,7 @@
 import React from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
-import { User, Phone, LogOut, CheckCircle2 } from 'lucide-react-native';
+import { Phone, LogOut } from 'lucide-react-native';
 import { useTheme } from '../../../src/theme';
 import { useAppStore } from '../../../src/store';
 import { Card, Button } from '../../../src/components';
@@ -9,16 +9,12 @@ import { Card, Button } from '../../../src/components';
 export default function SalesmanProfileTab() {
   const { theme } = useTheme();
   const router = useRouter();
-  const { user, isPunchedIn, punchInTime, togglePunchIn, setIsLoggedIn, setRole } = useAppStore();
+  const { user, isPunchedIn, punchInTime, togglePunchIn, logout } = useAppStore();
 
+  // Go to '/' (not guarded). It re-renders with the new state and redirects to /login.
   const handleLogout = () => {
-    setIsLoggedIn(false);
-    router.replace('/(salesman)/login');
-  };
-
-  const handleSwitchToAdmin = () => {
-    setRole('admin');
-    router.push('/(admin)/(tabs)');
+    logout();
+    router.replace('/');
   };
 
   return (
@@ -65,17 +61,6 @@ export default function SalesmanProfileTab() {
           onPress={togglePunchIn}
           variant={isPunchedIn ? 'outline' : 'primary'}
           size="normal"
-        />
-      </Card>
-
-      {/* Dev Switch to Admin */}
-      <Card surface="surface2" style={styles.devCard}>
-        <Text style={[styles.devTitle, { color: theme.colors.muted }]}>DEVELOPER PORTAL</Text>
-        <Button
-          title="Switch to Admin Portal"
-          onPress={handleSwitchToAdmin}
-          variant="secondary"
-          size="compact"
         />
       </Card>
 
@@ -164,17 +149,6 @@ const styles = StyleSheet.create({
   sectionSub: {
     fontFamily: 'Inter',
     fontSize: 13,
-  },
-  devCard: {
-    padding: 16,
-    gap: 10,
-    borderRadius: 18,
-  },
-  devTitle: {
-    fontFamily: 'Inter',
-    fontSize: 11,
-    fontWeight: '600',
-    letterSpacing: 0.5,
   },
 });
 

@@ -12,7 +12,7 @@ import type { Reminder } from '../../../src/types';
 export default function SalesmanHomeScreen() {
   const { theme } = useTheme();
   const router = useRouter();
-  const { isPunchedIn, punchInTime, togglePunchIn } = useAppStore();
+  const { user, isPunchedIn, punchInTime, togglePunchIn } = useAppStore();
 
   const {
     data: reminders,
@@ -20,8 +20,8 @@ export default function SalesmanHomeScreen() {
     error: remindersError,
     refetch: refetchReminders,
   } = useQuery<Reminder[]>({
-    queryKey: ['reminders'],
-    queryFn: () => crmService.getReminders(),
+    queryKey: ['reminders', user.id],
+    queryFn: () => crmService.getReminders(user.id),
   });
 
   const {
@@ -30,8 +30,8 @@ export default function SalesmanHomeScreen() {
     error: meetingsError,
     refetch: refetchMeetings,
   } = useQuery({
-    queryKey: ['meetings'],
-    queryFn: () => crmService.getMeetings(),
+    queryKey: ['meetings', user.id],
+    queryFn: () => crmService.getMeetings(user.id),
   });
 
   if (loadingReminders && loadingMeetings) {
@@ -96,7 +96,7 @@ export default function SalesmanHomeScreen() {
         {/* Heading */}
         <View style={styles.headingWrapper}>
           <Text style={[styles.heading, { color: theme.colors.text }]}>
-            Good morning,{'\n'}Today's plan
+            Good morning,{'\n'}Today&apos;s plan
           </Text>
         </View>
 

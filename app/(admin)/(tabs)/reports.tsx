@@ -26,7 +26,7 @@ export default function AdminReportsTabScreen() {
       <Card surface="surface" style={styles.heroReportCard}>
         <TrendingUp size={24} color={theme.colors.accent} />
         <Text style={[styles.reportCardTitle, { color: theme.colors.text }]}>
-          Today's Field Report (Salesman A)
+          Today&apos;s Field Report (Salesman A)
         </Text>
         <Text style={[styles.reportCardSub, { color: theme.colors.muted }]}>
           5 visits logged · ₹25,000 revenue closed · 1 voice note transcribed
@@ -62,7 +62,7 @@ export default function AdminReportsTabScreen() {
               </View>
               <Button
                 title="View"
-                onPress={() => router.push(`/(admin)/report/${m.id}` as any)}
+                onPress={() => router.push(`/(admin)/report/${m.id}`)}
                 variant="outline"
                 size="small"
                 fullWidth={false}

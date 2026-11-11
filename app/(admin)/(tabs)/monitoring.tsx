@@ -143,15 +143,15 @@ export default function AdminLiveMonitoringScreen() {
         </View>
       </View>
 
-      {/* Today's progress card */}
+      {/* Today&apos;s progress card */}
       <View style={[styles.card, { backgroundColor: theme.colors.surface }]}>
-        <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Today's progress</Text>
+        <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Today&apos;s progress</Text>
 
         <View style={styles.salesmenList}>
           {filteredSalesmen.map((s) => (
             <Pressable
               key={s.id}
-              onPress={() => router.push(`/(admin)/report/m-3` as any)}
+              onPress={() => router.push(`/(admin)/report/m-3`)}
               style={({ pressed }) => [
                 styles.salesmanItem,
                 { opacity: pressed ? 0.8 : 1 },
