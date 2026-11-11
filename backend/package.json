@@ -14,7 +14,8 @@
     "typecheck": "tsc -p .",
     "dev": "tsx watch src/server.ts",
     "start": "tsx src/server.ts",
-    "storage:setup": "tsx src/scripts/setupStorage.ts"
+    "storage:setup": "tsx src/scripts/setupStorage.ts",
+    "test": "tsx --test test/*.test.ts"
   },
   "devDependencies": {
     "@types/node": "^22.20.5",

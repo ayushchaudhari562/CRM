@@ -43,7 +43,7 @@ export async function createUpload(salesmanId: string, kind: UploadKind, content
   if (sizeBytes > rule.maxBytes) throw new HttpError(400, 'too_large', `Max ${rule.maxBytes / 1024 / 1024} MB for ${kind}.`);
 
   const path = `${salesmanId}/${kind}/${randomUUID()}.${ext}`;
-  const res = await call(`/object/upload/sign/${env.storageBucket}/${path}`, { method: 'POST', headers: headers() });
+  const res = await call(`/object/upload/sign/${env.storageBucket}/${path}`, { method: 'POST', headers: headers(), body: '{}' });
   if (!res.ok) throw new HttpError(503, 'storage_error', 'Could not prepare the upload. Please try again.');
   const { url } = (await res.json()) as { url: string };
   // Phone does: PUT uploadUrl, body = file, header Content-Type = contentType. URL works once, for ~2 hours.

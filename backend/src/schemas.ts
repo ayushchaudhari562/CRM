@@ -160,3 +160,36 @@ export const createUploadBody = {
     },
   },
 } as const;
+
+const lat = { type: 'number', minimum: -90, maximum: 90 } as const;
+const lng = { type: 'number', minimum: -180, maximum: 180 } as const;
+const latLng = { type: 'object', additionalProperties: false, required: ['latitude', 'longitude'], properties: { latitude: lat, longitude: lng } } as const;
+
+// Body is optional (old app versions send none).
+export const punchBody = {
+  body: { type: ['object', 'null'], additionalProperties: false, properties: { location: { ...latLng, type: ['object', 'null'] } } },
+} as const;
+
+// 120 points = 2 hours offline at 1/min.
+export const locationPingsBody = {
+  body: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['pings'],
+    properties: {
+      pings: {
+        type: 'array',
+        minItems: 1,
+        maxItems: 120,
+        items: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['latitude', 'longitude', 'accuracy', 'recordedAt'],
+          properties: { latitude: lat, longitude: lng, accuracy: { type: ['number', 'null'], minimum: 0 }, recordedAt: { type: 'string', format: 'date-time' } },
+        },
+      },
+    },
+  },
+} as const;
+
+export const dayRouteQuery = { ...idParam, querystring: { type: 'object', properties: { date: day } } } as const;

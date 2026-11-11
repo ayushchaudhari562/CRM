@@ -169,6 +169,43 @@ export interface CreateMeetingInput {
   location: { latitude: number; longitude: number; accuracy: number | null } | null;
 }
 
+export interface LatLng {
+  latitude: number;
+  longitude: number;
+}
+
+/** Body of POST /me/attendance/toggle (location optional: GPS may be off). */
+export interface PunchInput {
+  location?: LatLng | null;
+}
+
+/** Body of POST /me/locations: GPS points buffered on the phone while punched in. */
+export interface LocationPingsInput {
+  pings: (LatLng & { accuracy: number | null; recordedAt: string })[];
+}
+
+/** Admin map: last known point today. */
+export interface SalesmanLocation extends LatLng {
+  salesmanId: string;
+  salesmanName: string;
+  accuracy: number | null;
+  recordedAt: string;
+}
+
+/** Admin: one salesman's day on the map. */
+export interface DayRoute {
+  salesmanId: string;
+  date: string; // YYYY-MM-DD
+  shifts: {
+    punchInAt: string;
+    punchOutAt: string | null;
+    punchIn: LatLng | null;
+    punchOut: LatLng | null;
+  }[];
+  points: (LatLng & { recordedAt: string })[];
+  visits: (LatLng & { meetingId: string; clientName: string; checkInAt: string })[];
+}
+
 export type UploadKind = 'selfie' | 'photo' | 'voice' | 'file';
 
 /** Body of POST /me/uploads */

@@ -23,6 +23,10 @@ import type {
   SyncResult,
   CreateUploadInput,
   UploadTicket,
+  DayRoute,
+  LatLng,
+  LocationPingsInput,
+  SalesmanLocation,
 } from '../types';
 import { getToken } from './session';
 
@@ -81,8 +85,14 @@ export const crmService = {
 
   // Salesman (server filters everything by the logged-in salesman)
   getHome: () => request<SalesmanHome>('/me/home'),
-  togglePunch: () =>
-    request<{ punchedInAt: string | null }>('/me/attendance/toggle', { method: 'POST' }),
+  togglePunch: (location: LatLng | null = null) =>
+    request<{ punchedInAt: string | null }>('/me/attendance/toggle', {
+      method: 'POST',
+      body: { location },
+    }),
+  /** GPS points buffered while punched in (max 120 per call). */
+  sendLocations: (input: LocationPingsInput) =>
+    request<{ accepted: number }>('/me/locations', { method: 'POST', body: input }),
   getMeetings: (range: 'today' | 'week' | 'all' = 'all') =>
     request<Meeting[]>(`/me/meetings?range=${range}`),
   searchClients: (q: string) => request<Client[]>(`/me/clients?q=${encodeURIComponent(q)}`),
@@ -120,6 +130,11 @@ export const crmService = {
   getAllMeetings: (limit = 50, salesmanId?: string) =>
     request<Meeting[]>(
       `/admin/meetings?limit=${limit}${salesmanId ? `&salesmanId=${encodeURIComponent(salesmanId)}` : ''}`,
+    ),
+  getLatestLocations: () => request<SalesmanLocation[]>('/admin/locations'),
+  getDayRoute: (salesmanId: string, date?: string) =>
+    request<DayRoute>(
+      `/admin/salesmen/${encodeURIComponent(salesmanId)}/route${date ? `?date=${date}` : ''}`,
     ),
   getMeeting: (id: string) => request<Meeting>(`/admin/meetings/${encodeURIComponent(id)}`),
   addSalesman: (input: CreateSalesmanInput) =>

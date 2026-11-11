@@ -5,7 +5,8 @@ import { authenticate, HttpError, normalizePhone, requireRole } from '../auth';
 import { followUpInclude, initials, istDay, istToday, meetingInclude, toAppUser, toFollowUp, toMeeting } from '../dto';
 import { dayTargets, followUpQuery } from '../planning';
 import { withFileUrls } from '../storage';
-import { adminFollowUpsQuery, adminMeetingsQuery, adminTargetsQuery, createSalesmanBody, idParam, setTargetBody } from '../schemas';
+import { dayRoute, latestLocations } from '../tracking';
+import { adminFollowUpsQuery, adminMeetingsQuery, adminTargetsQuery, createSalesmanBody, dayRouteQuery, idParam, setTargetBody } from '../schemas';
 import type { AdminFollowUp, AdminOverview, CreateSalesmanInput, FieldStatus, FollowUpScope, SalesmanProgress, SetTargetInput } from '../../../src/types';
 
 /** Today's field status + numbers for every active salesman. Used by overview and monitoring. */
@@ -147,5 +148,15 @@ export async function adminRoutes(app: FastifyInstance) {
       ),
     );
     return dayTargets(day);
+  });
+
+  // Map: last known point today for every salesman on duty.
+  app.get('/admin/locations', async () => latestLocations());
+
+  // One salesman's day on the map: shifts, GPS trail, visits.
+  app.get<{ Params: { id: string }; Querystring: { date?: string } }>('/admin/salesmen/:id/route', { schema: dayRouteQuery }, async (req) => {
+    const s = await prisma.user.findFirst({ where: { id: req.params.id, role: 'SALESMAN' }, select: { id: true } });
+    if (!s) throw new HttpError(404, 'not_found', 'Salesman not found.');
+    return dayRoute(s.id, req.query.date ?? istToday().day);
   });
 }

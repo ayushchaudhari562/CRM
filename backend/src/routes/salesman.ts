@@ -4,11 +4,12 @@ import { prisma } from '../db';
 import { authenticate, HttpError, requireRole } from '../auth';
 import { editableUntil, followUpInclude, istToday, meetingInclude, OUTCOME_TO_DB, toFollowUp, toMeeting } from '../dto';
 import { followUpQuery, salesmanTargets } from '../planning';
-import { clientSearchQuery, createMeetingBody, createUploadBody, followUpsQuery, syncBody, idParam, meetingsQuery, targetsQuery, updateFollowUpBody, updateMeetingBody } from '../schemas';
+import { clientSearchQuery, createMeetingBody, createUploadBody, followUpsQuery, locationPingsBody, punchBody, syncBody, idParam, meetingsQuery, targetsQuery, updateFollowUpBody, updateMeetingBody } from '../schemas';
 import { saveMeeting } from '../meetings';
 import { createUpload, withFileUrls } from '../storage';
+import { savePings } from '../tracking';
 import { MEETING_FIELD_GROUP, SALESMAN_EDITABLE } from '../../../src/config';
-import type { ClientDetail, CreateMeetingInput, FollowUpScope, CreateUploadInput, SalesmanHome, SyncInput, SyncResult, UpdateFollowUpInput, UpdateMeetingInput } from '../../../src/types';
+import type { ClientDetail, CreateMeetingInput, FollowUpScope, CreateUploadInput, LocationPingsInput, PunchInput, SalesmanHome, SyncInput, SyncResult, UpdateFollowUpInput, UpdateMeetingInput } from '../../../src/types';
 
 export async function salesmanRoutes(app: FastifyInstance) {
   app.addHook('onRequest', authenticate);
@@ -71,19 +72,31 @@ export async function salesmanRoutes(app: FastifyInstance) {
   );
 
   // Punch in if not punched in today, otherwise punch out.
-  app.post('/me/attendance/toggle', async (req) => {
+  app.post<{ Body: PunchInput | null }>('/me/attendance/toggle', { schema: punchBody }, async (req) => {
     const me = req.user!;
     const { start, end } = istToday();
+    const loc = req.body?.location ?? null;
     const open = await prisma.attendance.findFirst({
       where: { salesmanId: me.id, punchInAt: { gte: start, lt: end }, punchOutAt: null },
+      select: { id: true },
     });
     if (open) {
-      await prisma.attendance.update({ where: { id: open.id }, data: { punchOutAt: new Date() } });
+      await prisma.attendance.update({
+        where: { id: open.id },
+        data: { punchOutAt: new Date(), punchOutLat: loc?.latitude ?? null, punchOutLng: loc?.longitude ?? null },
+      });
       return { punchedInAt: null };
     }
-    const row = await prisma.attendance.create({ data: { salesmanId: me.id, punchInAt: new Date() } });
+    const row = await prisma.attendance.create({
+      data: { salesmanId: me.id, punchInAt: new Date(), punchInLat: loc?.latitude ?? null, punchInLng: loc?.longitude ?? null },
+    });
     return { punchedInAt: row.punchInAt.toISOString() };
   });
+
+  // GPS points buffered on the phone. Stored only while on duty, at most 1 per minute.
+  app.post<{ Body: LocationPingsInput }>('/me/locations', { schema: locationPingsBody }, async (req) => ({
+    accepted: await savePings(req.user!.id, req.body.pings),
+  }));
 
   app.get<{ Querystring: { range: 'today' | 'week' | 'all' } }>('/me/meetings', { schema: meetingsQuery }, async (req) => {
     const me = req.user!;
