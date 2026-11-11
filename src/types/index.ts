@@ -30,7 +30,7 @@ export interface Client {
 export interface Attachment {
   id: string;
   name: string;
-  url: string;
+  url: string | null; // signed, short-lived; null = file not available
   type: 'photo' | 'file';
   size: number; // bytes
 }
@@ -57,6 +57,7 @@ export interface Meeting {
   selfieUrl: string | null;
   checkInAt: string;
   checkOutAt: string | null;
+  editableUntil: string | null; // salesman can edit (allowed fields) until this time; null = not editable
 }
 
 export type FollowUpStatus = 'Pending' | 'Overdue' | 'Done' | 'Cancelled';
@@ -69,6 +70,43 @@ export interface FollowUp {
   type: 'Visit' | 'Call';
   dueAt: string;
   status: FollowUpStatus;
+}
+
+/** Lists: overdue = pending & past due, today = pending & due later today, upcoming = after today, done = done/cancelled. */
+export type FollowUpScope = 'overdue' | 'today' | 'upcoming' | 'done';
+
+/** Admin list adds who owns it. */
+export interface AdminFollowUp extends FollowUp {
+  salesmanId: string;
+  salesmanName: string;
+}
+
+/** Body of PATCH /me/followups/:id. Send a status to close it, or dueAt to reschedule. */
+export interface UpdateFollowUpInput {
+  status?: 'Done' | 'Cancelled';
+  dueAt?: string;
+}
+
+/** One day's target vs. achieved. date = YYYY-MM-DD (India time). */
+export interface TargetProgress {
+  date: string;
+  visitsTarget: number; // 0 = no target set
+  visitsDone: number;
+  dealValueTarget: number | null;
+  dealValue: number; // closed deals
+}
+
+export interface SalesmanTargetProgress extends TargetProgress {
+  salesmanId: string;
+  salesmanName: string;
+}
+
+/** Body of PUT /admin/targets: same target for one or many salesmen on one day. */
+export interface SetTargetInput {
+  salesmanIds: string[];
+  date: string; // YYYY-MM-DD
+  visitsTarget: number;
+  dealValueTarget: number | null;
 }
 
 export interface SalesmanHome {
@@ -123,8 +161,55 @@ export interface CreateMeetingInput {
   nextVisit: string | null;
   whatsappReminder: boolean;
   checkInAt: string;
+  checkOutAt?: string; // when the form was saved on the phone (offline visits sync later); default = now
+  // Files uploaded first via POST /me/uploads; send back the returned paths.
+  selfiePath?: string | null;
+  voiceNote?: { path: string; seconds: number } | null;
+  attachments?: { path: string; name: string; type: 'photo' | 'file'; sizeBytes: number }[];
   location: { latitude: number; longitude: number; accuracy: number | null } | null;
 }
+
+export type UploadKind = 'selfie' | 'photo' | 'voice' | 'file';
+
+/** Body of POST /me/uploads */
+export interface CreateUploadInput {
+  kind: UploadKind;
+  contentType: string; // e.g. image/jpeg, audio/mp4, application/pdf
+  sizeBytes: number;
+}
+
+/** Then: PUT uploadUrl with the file as body and this Content-Type. Use `path` in the meeting. */
+export interface UploadTicket {
+  path: string;
+  uploadUrl: string;
+  contentType: string;
+}
+
+/** Body of POST /me/sync: visits saved offline, oldest first. */
+export interface SyncInput {
+  meetings: CreateMeetingInput[];
+}
+
+/** One result per sent visit, same order. created = new, duplicate = already synced before (safe to drop). */
+export type SyncResult =
+  | { clientRequestId: string; status: 'created' | 'duplicate'; meeting: Meeting }
+  | { clientRequestId: string; status: 'error'; error: string; message: string };
+
+/** Body of PATCH /me/meetings/:id: only the fields to change. */
+export type UpdateMeetingInput = Partial<
+  Pick<
+    CreateMeetingInput,
+    | 'clientName'
+    | 'businessType'
+    | 'contactNumber'
+    | 'productIds'
+    | 'dealValue'
+    | 'outcome'
+    | 'note'
+    | 'nextVisit'
+    | 'whatsappReminder'
+  >
+>;
 
 /** Body of POST /admin/salesmen */
 export interface CreateSalesmanInput {

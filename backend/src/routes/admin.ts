@@ -2,8 +2,11 @@
 import type { FastifyInstance } from 'fastify';
 import { prisma } from '../db';
 import { authenticate, HttpError, normalizePhone, requireRole } from '../auth';
-import { initials, istToday, meetingInclude, toAppUser, toMeeting } from '../dto';
-import type { AdminOverview, CreateSalesmanInput, FieldStatus, SalesmanProgress } from '../../../src/types';
+import { followUpInclude, initials, istDay, istToday, meetingInclude, toAppUser, toFollowUp, toMeeting } from '../dto';
+import { dayTargets, followUpQuery } from '../planning';
+import { withFileUrls } from '../storage';
+import { adminFollowUpsQuery, adminMeetingsQuery, adminTargetsQuery, createSalesmanBody, idParam, setTargetBody } from '../schemas';
+import type { AdminFollowUp, AdminOverview, CreateSalesmanInput, FieldStatus, FollowUpScope, SalesmanProgress, SetTargetInput } from '../../../src/types';
 
 /** Today's field status + numbers for every active salesman. Used by overview and monitoring. */
 async function todayProgress(): Promise<SalesmanProgress[]> {
@@ -38,37 +41,40 @@ async function todayProgress(): Promise<SalesmanProgress[]> {
 }
 
 export async function adminRoutes(app: FastifyInstance) {
-  app.addHook('preHandler', authenticate);
-  app.addHook('preHandler', requireRole('ADMIN'));
+  app.addHook('onRequest', authenticate);
+  app.addHook('onRequest', requireRole('ADMIN'));
 
   app.get('/admin/overview', async (): Promise<AdminOverview> => {
     const { start, end, date } = istToday();
     const now = new Date();
-    const [progress, meetings, targets, followupsDue, followupsOverdue, remindersSent] = await Promise.all([
+    const [progress, byOutcome, targets, followupsDue, followupsOverdue, remindersSent] = await Promise.all([
       todayProgress(),
-      prisma.meeting.findMany({ where: { checkInAt: { gte: start, lt: end } }, select: { outcome: true, dealValue: true } }),
+      // Counted + summed in the DB: one small row per outcome instead of every meeting.
+      prisma.meeting.groupBy({ by: ['outcome'], where: { checkInAt: { gte: start, lt: end } }, _count: true, _sum: { dealValue: true } }),
       prisma.target.aggregate({ where: { date, salesman: { isActive: true } }, _sum: { visitsTarget: true } }),
       prisma.followUp.count({ where: { status: 'PENDING', dueAt: { gte: now, lt: end } } }),
       prisma.followUp.count({ where: { status: 'PENDING', dueAt: { lt: now } } }),
       prisma.followUp.count({ where: { whatsappSentAt: { gte: start, lt: end } } }),
     ]);
-    const closed = meetings.filter((m) => m.outcome === 'CLOSED');
+    const outcome = (o: (typeof byOutcome)[number]['outcome']) => byOutcome.find((g) => g.outcome === o);
+    const n = (o: Parameters<typeof outcome>[0]) => outcome(o)?._count ?? 0;
+    const visitsDone = byOutcome.reduce((sum, g) => sum + g._count, 0);
     const count = (s: FieldStatus) => progress.filter((p) => p.status === s).length;
     return {
       salesmenCount: progress.length,
-      visitsDone: meetings.length,
+      visitsDone,
       visitsTarget: targets._sum.visitsTarget ?? 0,
-      dealsClosed: closed.length,
-      dealValueTotal: closed.reduce((sum, m) => sum + Number(m.dealValue), 0),
+      dealsClosed: n('CLOSED'),
+      dealValueTotal: Number(outcome('CLOSED')?._sum.dealValue ?? 0),
       followupsDue,
       followupsOverdue,
       remindersSent,
       fieldStatus: { inMeeting: count('In meeting'), onRoad: count('On the road'), notStarted: count('Not started'), total: progress.length },
       outcomes: {
-        interested: meetings.filter((m) => m.outcome === 'INTERESTED').length,
-        closed: closed.length,
-        notInterested: meetings.filter((m) => m.outcome === 'NOT_INTERESTED').length,
-        total: meetings.length,
+        interested: n('INTERESTED'),
+        closed: n('CLOSED'),
+        notInterested: n('NOT_INTERESTED'),
+        total: visitsDone,
       },
     };
   });
@@ -76,9 +82,9 @@ export async function adminRoutes(app: FastifyInstance) {
   app.get('/admin/progress', async () => todayProgress());
 
   // Add a salesman. They can then log in with OTP on this phone number.
-  app.post<{ Body: CreateSalesmanInput }>('/admin/salesmen', async (req) => {
-    const name = req.body?.name?.trim() ?? '';
-    const digits = (req.body?.phone ?? '').replace(/\D/g, '');
+  app.post<{ Body: CreateSalesmanInput }>('/admin/salesmen', { schema: createSalesmanBody }, async (req) => {
+    const name = req.body.name.trim();
+    const digits = req.body.phone.replace(/\D/g, '');
     const phone = digits.length === 10 ? normalizePhone('91' + digits) : digits.length === 12 && digits.startsWith('91') ? normalizePhone(digits) : null;
     if (name.length < 2) throw new HttpError(400, 'invalid', 'Enter the full name.');
     if (!phone) throw new HttpError(400, 'invalid', 'Enter a valid 10-digit mobile number.');
@@ -88,20 +94,58 @@ export async function adminRoutes(app: FastifyInstance) {
     return toAppUser(user);
   });
 
-  app.get<{ Querystring: { salesmanId?: string; limit?: string } }>('/admin/meetings', async (req) => {
-    const limit = Math.min(Number(req.query.limit) || 50, 200);
+  app.get<{ Querystring: { salesmanId?: string; limit: number } }>('/admin/meetings', { schema: adminMeetingsQuery }, async (req) => {
+    const { limit } = req.query;
     const rows = await prisma.meeting.findMany({
       where: req.query.salesmanId ? { salesmanId: req.query.salesmanId } : {},
       include: meetingInclude,
       orderBy: { checkInAt: 'desc' },
       take: limit,
     });
-    return rows.map(toMeeting);
+    return withFileUrls(rows.map(toMeeting));
   });
 
-  app.get<{ Params: { id: string } }>('/admin/meetings/:id', async (req) => {
+  app.get<{ Params: { id: string } }>('/admin/meetings/:id', { schema: idParam }, async (req) => {
     const m = await prisma.meeting.findUnique({ where: { id: req.params.id }, include: meetingInclude });
     if (!m) throw new HttpError(404, 'not_found', 'Meeting not found.');
-    return toMeeting(m);
+    return (await withFileUrls([toMeeting(m)]))[0];
+  });
+
+  app.get<{ Querystring: { scope: FollowUpScope; limit: number; salesmanId?: string } }>(
+    '/admin/followups',
+    { schema: adminFollowUpsQuery },
+    async (req): Promise<AdminFollowUp[]> => {
+      const { where, orderBy } = followUpQuery(req.query.scope);
+      const rows = await prisma.followUp.findMany({
+        where: { ...where, ...(req.query.salesmanId ? { salesmanId: req.query.salesmanId } : {}) },
+        include: { ...followUpInclude, salesman: { select: { name: true } } },
+        orderBy,
+        take: req.query.limit,
+      });
+      return rows.map((f) => ({ ...toFollowUp(f), salesmanId: f.salesmanId, salesmanName: f.salesman.name }));
+    },
+  );
+
+  // Target vs. achieved for all salesmen on one day (default today).
+  app.get<{ Querystring: { date?: string } }>('/admin/targets', { schema: adminTargetsQuery }, async (req) =>
+    dayTargets(req.query.date ?? istToday().day),
+  );
+
+  // Same target for one or many salesmen on one day (create or overwrite). Returns that day's progress.
+  app.put<{ Body: SetTargetInput }>('/admin/targets', { schema: setTargetBody }, async (req) => {
+    const { salesmanIds, visitsTarget, dealValueTarget } = req.body;
+    const { date, day } = istDay(req.body.date);
+    const valid = await prisma.user.count({ where: { id: { in: salesmanIds }, role: 'SALESMAN', isActive: true } });
+    if (valid !== salesmanIds.length) throw new HttpError(400, 'invalid', 'Some salesmen were not found.');
+    await prisma.$transaction(
+      salesmanIds.map((salesmanId) =>
+        prisma.target.upsert({
+          where: { salesmanId_date: { salesmanId, date } },
+          create: { salesmanId, date, visitsTarget, dealValueTarget },
+          update: { visitsTarget, dealValueTarget },
+        }),
+      ),
+    );
+    return dayTargets(day);
   });
 }

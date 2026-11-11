@@ -11,6 +11,18 @@ import type {
   Product,
   SalesmanHome,
   SalesmanProgress,
+  AdminFollowUp,
+  FollowUp,
+  FollowUpScope,
+  SalesmanTargetProgress,
+  SetTargetInput,
+  TargetProgress,
+  UpdateFollowUpInput,
+  UpdateMeetingInput,
+  SyncInput,
+  SyncResult,
+  CreateUploadInput,
+  UploadTicket,
 } from '../types';
 import { getToken } from './session';
 
@@ -78,6 +90,29 @@ export const crmService = {
   getProducts: () => request<Product[]>('/products'),
   createMeeting: (input: CreateMeetingInput) =>
     request<Meeting>('/me/meetings', { method: 'POST', body: input }),
+  /** File step 1: one-time upload URL. Step 2: uploadFile. Step 3: send ticket.path with the meeting. */
+  createUpload: (input: CreateUploadInput) =>
+    request<UploadTicket>('/me/uploads', { method: 'POST', body: input }),
+  /** File step 2: send the file straight to storage (not through our API). */
+  uploadFile: async (ticket: UploadTicket, fileUri: string) => {
+    const file = await (await fetch(fileUri)).blob();
+    const res = await fetch(ticket.uploadUrl, {
+      method: 'PUT',
+      headers: { 'Content-Type': ticket.contentType },
+      body: file,
+    });
+    if (!res.ok) throw new ApiError(res.status, 'upload_failed', 'Could not upload the file.');
+    return ticket.path;
+  },
+  /** Offline queue: max 25 visits per call, oldest first. */
+  syncMeetings: (input: SyncInput) =>
+    request<SyncResult[]>('/me/sync', { method: 'POST', body: input }),
+  updateMeeting: (id: string, input: UpdateMeetingInput) =>
+    request<Meeting>(`/me/meetings/${encodeURIComponent(id)}`, { method: 'PATCH', body: input }),
+  getFollowUps: (scope: FollowUpScope) => request<FollowUp[]>(`/me/followups?scope=${scope}`),
+  updateFollowUp: (id: string, input: UpdateFollowUpInput) =>
+    request<FollowUp>(`/me/followups/${encodeURIComponent(id)}`, { method: 'PATCH', body: input }),
+  getMyTargets: (days = 7) => request<TargetProgress[]>(`/me/targets?days=${days}`),
 
   // Admin
   getAdminOverview: () => request<AdminOverview>('/admin/overview'),
@@ -89,6 +124,14 @@ export const crmService = {
   getMeeting: (id: string) => request<Meeting>(`/admin/meetings/${encodeURIComponent(id)}`),
   addSalesman: (input: CreateSalesmanInput) =>
     request<AppUser>('/admin/salesmen', { method: 'POST', body: input }),
+  getAllFollowUps: (scope: FollowUpScope, salesmanId?: string) =>
+    request<AdminFollowUp[]>(
+      `/admin/followups?scope=${scope}${salesmanId ? `&salesmanId=${encodeURIComponent(salesmanId)}` : ''}`,
+    ),
+  getTargets: (date?: string) =>
+    request<SalesmanTargetProgress[]>(`/admin/targets${date ? `?date=${date}` : ''}`),
+  setTargets: (input: SetTargetInput) =>
+    request<SalesmanTargetProgress[]>('/admin/targets', { method: 'PUT', body: input }),
 
   // TODO (backend later): uploadAttachment, transcribeVoiceNote, sendWhatsAppReminder
 };

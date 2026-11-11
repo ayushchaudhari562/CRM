@@ -1,6 +1,15 @@
 // DB rows -> API shapes (the types in src/types, shared with the app).
 import type { Prisma, User, MeetingOutcome as DbOutcome } from './generated/prisma/client';
 import type { AppUser, FollowUp, Meeting, MeetingOutcome } from '../../src/types';
+import { SALESMAN_EDIT_WINDOW_MS, SALESMAN_EDITABLE } from '../../src/config';
+
+const ANY_EDITABLE = Object.values(SALESMAN_EDITABLE).some(Boolean);
+
+/** Last moment a salesman may edit this visit (null = never / already over). */
+export function editableUntil(createdAt: Date, now = Date.now()): Date | null {
+  const until = createdAt.getTime() + SALESMAN_EDIT_WINDOW_MS;
+  return ANY_EDITABLE && until > now ? new Date(until) : null;
+}
 
 export const OUTCOME_TO_API: Record<DbOutcome, MeetingOutcome> = {
   INTERESTED: 'Interested',
@@ -64,10 +73,14 @@ export function toMeeting(m: MeetingRow): Meeting {
     selfieUrl: m.selfieUrl,
     checkInAt: m.checkInAt.toISOString(),
     checkOutAt: m.checkOutAt?.toISOString() ?? null,
+    editableUntil: editableUntil(m.createdAt)?.toISOString() ?? null,
   };
 }
 
-type FollowUpRow = Prisma.FollowUpGetPayload<{ include: { client: true } }>;
+/** Prisma `include` needed by toFollowUp (only the 2 client columns it uses). */
+export const followUpInclude = { client: { select: { name: true, businessType: true } } } satisfies Prisma.FollowUpInclude;
+
+type FollowUpRow = Prisma.FollowUpGetPayload<{ include: typeof followUpInclude }>;
 
 export function toFollowUp(f: FollowUpRow, now = new Date()): FollowUp {
   const overdue = f.status === 'PENDING' && f.dueAt < now;
@@ -82,12 +95,15 @@ export function toFollowUp(f: FollowUpRow, now = new Date()): FollowUp {
   };
 }
 
-/** Start/end of "today" in India (IST, UTC+5:30), as UTC Dates. */
-export function istToday(now = new Date()) {
-  const IST = 5.5 * 3600_000;
-  const ist = new Date(now.getTime() + IST);
-  const start = new Date(Date.UTC(ist.getUTCFullYear(), ist.getUTCMonth(), ist.getUTCDate()) - IST);
-  const end = new Date(start.getTime() + 24 * 3600_000);
-  const date = new Date(Date.UTC(ist.getUTCFullYear(), ist.getUTCMonth(), ist.getUTCDate())); // for @db.Date
-  return { start, end, date };
+const IST = 5.5 * 3600_000;
+export const DAY_MS = 24 * 3600_000;
+
+/** One India (IST, UTC+5:30) day as UTC Dates. `date` is for @db.Date columns, `day` is YYYY-MM-DD. */
+export function istDay(day: string) {
+  const date = new Date(`${day}T00:00:00Z`);
+  const start = new Date(date.getTime() - IST);
+  return { start, end: new Date(start.getTime() + DAY_MS), date, day };
 }
+
+/** "Today" in India. */
+export const istToday = (now = new Date()) => istDay(new Date(now.getTime() + IST).toISOString().slice(0, 10));

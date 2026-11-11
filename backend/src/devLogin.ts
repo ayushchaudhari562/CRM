@@ -32,11 +32,22 @@ export function phoneFromDevToken(token: string): string | null {
 }
 
 export async function devLoginRoutes(app: FastifyInstance) {
-  app.post<{ Body: { phone?: string; otp?: string } }>('/auth/dev-login', async (req) => {
+  const schema = {
+    body: {
+      type: 'object',
+      required: ['phone', 'otp'],
+      additionalProperties: false,
+      properties: { phone: { type: 'string', pattern: '^[+0-9 ]{10,16}$' }, otp: { type: 'string', pattern: '^[0-9]{6}$' } },
+    },
+  } as const;
+  // 5 tries per minute per IP: a 6-digit OTP can't be brute-forced.
+  const config = { rateLimit: { max: 5, timeWindow: '1 minute' } };
+
+  app.post<{ Body: { phone: string; otp: string } }>('/auth/dev-login', { schema, config }, async (req) => {
     if (!env.devLoginOtp) throw new HttpError(404, 'not_found', 'Not found.');
-    const digits = (req.body?.phone ?? '').replace(/\D/g, '');
-    const phone = digits.length === 10 ? normalizePhone('91' + digits) : normalizePhone(digits);
-    if (!sameText(req.body?.otp ?? '', env.devLoginOtp)) {
+    const digits = req.body.phone.replace(/\D/g, '');
+    const phone = normalizePhone(digits.length === 10 ? '91' + digits : digits);
+    if (!sameText(req.body.otp, env.devLoginOtp)) {
       throw new HttpError(401, 'wrong_otp', 'Wrong OTP. Please try again.');
     }
     const user = await prisma.user.findUnique({ where: { phone } });
