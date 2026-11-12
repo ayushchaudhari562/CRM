@@ -10,7 +10,6 @@ import {
 } from 'expo-audio';
 import { Mic, Square, Trash2 } from 'lucide-react-native';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
-import { isRunningInExpoGo } from 'expo';
 import { useTheme, fonts } from '../theme';
 import { VoicePlayer } from './VoicePlayer';
 
@@ -30,7 +29,6 @@ const PRESET: RecordingOptions = {
 };
 
 const KEEP_AWAKE = 'voice-recording';
-const IN_EXPO_GO = isRunningInExpoGo();
 
 const mmss = (ms: number) => {
   const s = Math.floor(ms / 1000);
@@ -60,44 +58,47 @@ export function VoiceRecorder({
     [],
   );
 
+  const reason = (e: unknown) =>
+    e instanceof Error && e.message ? ` (${e.message.slice(0, 80)})` : '';
+
   const start = async () => {
     setError('');
     try {
       const perm = await requestRecordingPermissionsAsync();
       if (!perm.granted)
         return setError('Microphone permission is off. Allow it in phone settings.');
-      // Keep recording if the screen locks: needs the recording service from the app.json plugin,
-      // which only real builds (APK) have. Expo Go has no such service, so it is off there.
+      // Foreground recording only (works in Expo Go and the APK). The screen is kept on while recording.
       await setAudioModeAsync({
         allowsRecording: true,
         playsInSilentMode: true,
-        allowsBackgroundRecording: !IN_EXPO_GO,
+        allowsBackgroundRecording: false,
       });
-      await activateKeepAwakeAsync(KEEP_AWAKE).catch(() => {}); // screen stays on while recording
+      await activateKeepAwakeAsync(KEEP_AWAKE).catch(() => {});
       await recorder.prepareToRecordAsync();
       recorder.record();
       limit.current = setTimeout(() => stop(), MAX_SECONDS * 1000);
-    } catch {
-      setError('Could not start recording. Please try again.');
+    } catch (e) {
+      deactivateKeepAwake(KEEP_AWAKE);
+      setError(`Could not start recording. Please try again.${reason(e)}`);
     }
   };
 
   const stop = async () => {
     clearTimeout(limit.current ?? undefined);
     deactivateKeepAwake(KEEP_AWAKE);
-    const ms = recorder.getStatus().durationMillis;
+    // Some phones report 0 from the recorder; the on-screen timer is the fallback.
+    const ms = Math.max(recorder.getStatus().durationMillis || 0, state.durationMillis || 0);
     try {
       await recorder.stop();
-      await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }); // play on the speaker
-      if (!recorder.uri) return setError('Recording failed. Please try again.');
-      if (ms < 1000) return setError('Too short. Hold on a little longer.');
-      onChange({
-        uri: recorder.uri,
-        seconds: Math.min(MAX_SECONDS, Math.max(1, Math.round(ms / 1000))),
-      });
-    } catch {
-      setError('Could not save the recording. Please try again.');
+    } catch (e) {
+      return setError(`Could not save the recording. Please try again.${reason(e)}`);
     }
+    // Back to normal playback (speaker); a failure here must not lose the recording.
+    setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }).catch(() => {});
+    const uri = recorder.uri;
+    if (!uri) return setError('Recording failed (no file). Please try again.');
+    if (ms < 1000) return setError('Too short. Hold on a little longer.');
+    onChange({ uri, seconds: Math.min(MAX_SECONDS, Math.max(1, Math.round(ms / 1000))) });
   };
 
   if (value && !state.isRecording) {
