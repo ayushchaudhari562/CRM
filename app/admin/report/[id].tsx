@@ -11,6 +11,7 @@ import {
   Timeline,
   LoadingView,
   ErrorView,
+  VoicePlayer,
   type TimelineItem,
 } from '../../../src/components';
 import { crmService } from '../../../src/services';
@@ -138,7 +139,7 @@ export default function AdminMeetingReportScreen() {
         </Card>
 
         {/* Notes */}
-        {m.note || m.aiSummary ? (
+        {m.note || m.aiSummary || m.voiceNoteUrl ? (
           <Card style={styles.gap8}>
             {m.note ? (
               <>
@@ -146,15 +147,19 @@ export default function AdminMeetingReportScreen() {
                 <Text style={[styles.body, text]}>{m.note}</Text>
               </>
             ) : null}
-            {m.aiSummary ? (
+            {m.voiceNoteUrl || m.aiSummary ? (
               <>
                 <View style={styles.iconRow}>
                   <Mic size={14} color={theme.colors.muted} />
                   <Text style={[styles.small, muted]}>
-                    Voice note{m.voiceNoteDuration ? ` · ${m.voiceNoteDuration}s` : ''} · AI summary
+                    Voice note{m.voiceNoteDuration ? ` · ${m.voiceNoteDuration}s` : ''}
+                    {m.aiSummary ? ' · AI summary' : ''}
                   </Text>
                 </View>
-                <Text style={[styles.body, text]}>{m.aiSummary}</Text>
+                {m.voiceNoteUrl ? (
+                  <VoicePlayer uri={m.voiceNoteUrl} seconds={m.voiceNoteDuration} />
+                ) : null}
+                {m.aiSummary ? <Text style={[styles.body, text]}>{m.aiSummary}</Text> : null}
               </>
             ) : null}
           </Card>

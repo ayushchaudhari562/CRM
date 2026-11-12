@@ -23,6 +23,7 @@ import type {
   SyncInput,
   SyncResult,
   CreateUploadInput,
+  UploadKind,
   UploadTicket,
   DayRoute,
   LatLng,
@@ -127,6 +128,22 @@ export const crmService = {
       body: file,
     });
     if (!res.ok) throw new ApiError(res.status, 'upload_failed', 'Could not upload the file.');
+    return ticket.path;
+  },
+  /** All 3 file steps for a file on the phone. Returns the storage path to send with the meeting. */
+  uploadLocal: async (kind: UploadKind, fileUri: string, contentType: string) => {
+    const file = await (await fetch(fileUri)).blob();
+    const ticket = await request<UploadTicket>('/me/uploads', {
+      method: 'POST',
+      body: { kind, contentType, sizeBytes: file.size },
+    });
+    const res = await fetch(ticket.uploadUrl, {
+      method: 'PUT',
+      headers: { 'Content-Type': ticket.contentType },
+      body: file,
+    });
+    if (!res.ok)
+      throw new ApiError(res.status, 'upload_failed', 'Could not upload the voice note.');
     return ticket.path;
   },
   /** Offline queue: max 25 visits per call, oldest first. */

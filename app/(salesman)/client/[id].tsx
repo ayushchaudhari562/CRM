@@ -6,7 +6,14 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { ChevronLeft, Lock, MapPin, Mic, Paperclip, Phone } from 'lucide-react-native';
 import { useTheme, fonts } from '../../../src/theme';
-import { Card, Chip, LoadingView, ErrorView, EmptyView } from '../../../src/components';
+import {
+  Card,
+  Chip,
+  LoadingView,
+  ErrorView,
+  EmptyView,
+  VoicePlayer,
+} from '../../../src/components';
 import { crmService } from '../../../src/services';
 import { formatDateTime, formatINR, initialOf } from '../../../src/utils/format';
 import type { FollowUp, Meeting } from '../../../src/types';
@@ -177,15 +184,21 @@ function VisitCard({ m }: { m: Meeting }) {
 
       {m.note ? <Text style={[styles.body, { color: theme.colors.text }]}>{m.note}</Text> : null}
 
-      {m.aiSummary ? (
+      {m.voiceNoteUrl || m.aiSummary ? (
         <View style={[styles.summary, { backgroundColor: theme.colors.surface2 }]}>
           <View style={styles.iconRow}>
             <Mic size={14} color={theme.colors.muted} />
             <Text style={[styles.small, { color: theme.colors.muted }]}>
-              Voice note{m.voiceNoteDuration ? ` · ${m.voiceNoteDuration}s` : ''} · AI summary
+              Voice note{m.voiceNoteDuration ? ` · ${m.voiceNoteDuration}s` : ''}
+              {m.aiSummary ? ' · AI summary' : ''}
             </Text>
           </View>
-          <Text style={[styles.body, { color: theme.colors.text }]}>{m.aiSummary}</Text>
+          {m.voiceNoteUrl ? (
+            <VoicePlayer uri={m.voiceNoteUrl} seconds={m.voiceNoteDuration} />
+          ) : null}
+          {m.aiSummary ? (
+            <Text style={[styles.body, { color: theme.colors.text }]}>{m.aiSummary}</Text>
+          ) : null}
         </View>
       ) : null}
 

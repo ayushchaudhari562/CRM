@@ -10,10 +10,19 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ChevronLeft, Check, Mic } from 'lucide-react-native';
+import { ChevronLeft, Check } from 'lucide-react-native';
 import { z } from 'zod';
 import { useTheme, fonts } from '../../src/theme';
-import { Button, Field, Chip, SegmentedControl, EmptyView } from '../../src/components';
+import {
+  Button,
+  Field,
+  Chip,
+  SegmentedControl,
+  EmptyView,
+  VoiceRecorder,
+  VOICE_CONTENT_TYPE,
+  type VoiceClip,
+} from '../../src/components';
 import { useAppStore } from '../../src/store';
 import { crmService } from '../../src/services';
 import { formatDateTime } from '../../src/utils/format';
@@ -67,6 +76,9 @@ export default function MeetingDetailsScreen() {
   const [note, setNote] = useState('');
   const [nextVisitDays, setNextVisitDays] = useState<number>(0);
   const [whatsappReminder, setWhatsappReminder] = useState(true);
+  const [voice, setVoice] = useState<VoiceClip | null>(null);
+  // Uploaded once: pressing Submit again after an error does not upload the same file twice.
+  const [uploadedVoice, setUploadedVoice] = useState<{ uri: string; path: string } | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -140,6 +152,15 @@ export default function MeetingDetailsScreen() {
     setSubmitError('');
     setIsSubmitting(true);
     try {
+      let voiceNote: { path: string; seconds: number } | null = null;
+      if (voice) {
+        const path =
+          uploadedVoice?.uri === voice.uri
+            ? uploadedVoice.path
+            : await crmService.uploadLocal('voice', voice.uri, VOICE_CONTENT_TYPE);
+        setUploadedVoice({ uri: voice.uri, path });
+        voiceNote = { path, seconds: voice.seconds };
+      }
       const saved = await crmService.createMeeting({
         clientRequestId,
         clientId,
@@ -154,6 +175,7 @@ export default function MeetingDetailsScreen() {
         whatsappReminder: !!nextVisit && whatsappReminder,
         checkInAt: checkIn.checkInAt,
         location: checkIn.location,
+        voiceNote,
       });
       setLastSavedMeeting(saved);
       setCheckIn(null);
@@ -328,18 +350,7 @@ export default function MeetingDetailsScreen() {
           inputStyle={styles.noteInput}
         />
 
-        {/* Voice note needs file storage (backend TODO). Shown as unavailable, not faked. */}
-        <View style={[styles.voiceNoteCard, { backgroundColor: theme.colors.surface }]}>
-          <View style={[styles.micButton, { backgroundColor: theme.colors.surface2 }]}>
-            <Mic size={26} color={theme.colors.muted} />
-          </View>
-          <Text style={[styles.recordText, { color: theme.colors.text }]}>
-            Voice notes and photos: coming soon
-          </Text>
-          <Text style={[styles.summaryHint, { color: theme.colors.muted }]}>
-            Needs file storage on the server. Use the note above for now.
-          </Text>
-        </View>
+        <VoiceRecorder value={voice} onChange={setVoice} disabled={isSubmitting} />
 
         {/* Next visit */}
         <View style={styles.sectionBlock}>
