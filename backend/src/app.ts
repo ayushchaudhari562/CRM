@@ -8,6 +8,7 @@ import { toAppUser } from './dto';
 import { salesmanRoutes } from './routes/salesman';
 import { adminRoutes } from './routes/admin';
 import { devLoginRoutes } from './devLogin';
+import { otpRoutes } from './otp';
 
 export function buildApp({ logger = true } = {}) {
   const app = Fastify({
@@ -73,5 +74,6 @@ export function buildApp({ logger = true } = {}) {
   void app.register(salesmanRoutes);
   void app.register(adminRoutes);
   void app.register(devLoginRoutes);
+  void app.register(otpRoutes);
   return app;
 }

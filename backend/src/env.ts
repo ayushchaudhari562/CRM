@@ -32,14 +32,32 @@ export const env = {
   storageBucket: process.env.STORAGE_BUCKET?.trim() || 'visit-files',
   devLoginOtp,
   devJwtSecret,
-  // WhatsApp reminders (Twilio). All four set = reminders on; any missing = off.
-  twilio: twilioConfig(),
+  // Signs our access tokens and the OTP hashes. Without it, OTP login is off (the old logins keep working).
+  authSecret: authSecret(),
+  messaging: messagingConfig(),
 };
 
-function twilioConfig() {
-  const accountSid = process.env.TWILIO_ACCOUNT_SID?.trim();
-  const authToken = process.env.TWILIO_AUTH_TOKEN?.trim();
-  const from = process.env.TWILIO_WHATSAPP_FROM?.trim(); // e.g. +14155238886 (the WhatsApp sender)
-  const reminderContentSid = process.env.TWILIO_REMINDER_CONTENT_SID?.trim(); // approved template, HX...
-  return accountSid && authToken && from && reminderContentSid ? { accountSid, authToken, from, reminderContentSid } : null;
+function authSecret() {
+  const s = process.env.AUTH_SECRET?.trim();
+  if (s && s.length < 32) throw new Error('AUTH_SECRET must be at least 32 characters');
+  return s || null;
+}
+
+/** Who delivers WhatsApp messages. "mock" (default) only logs, so development never sends real messages. */
+function messagingConfig() {
+  const provider = (process.env.MESSAGING_PROVIDER?.trim() || 'mock') as 'mock' | 'twilio';
+  if (provider === 'mock') return { provider } as const;
+  if (provider !== 'twilio') throw new Error('MESSAGING_PROVIDER must be "mock" or "twilio"');
+  const need = (name: string) => {
+    const v = process.env[name]?.trim();
+    if (!v) throw new Error(`${name} is required when MESSAGING_PROVIDER=twilio`);
+    return v;
+  };
+  return {
+    provider,
+    accountSid: need('TWILIO_ACCOUNT_SID'),
+    authToken: need('TWILIO_AUTH_TOKEN'),
+    from: need('TWILIO_WHATSAPP_FROM'), // the WhatsApp sender, e.g. +14155238886
+    templates: { otp: need('TWILIO_OTP_CONTENT_SID'), reminder: need('TWILIO_REMINDER_CONTENT_SID') }, // approved, HX...
+  } as const;
 }

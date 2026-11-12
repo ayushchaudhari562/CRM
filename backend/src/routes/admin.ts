@@ -1,10 +1,12 @@
 // Admin (manager) API. Sees all salesmen.
 import type { FastifyInstance } from 'fastify';
 import { prisma } from '../db';
-import { authenticate, HttpError, normalizePhone, requireRole } from '../auth';
+import { authenticate, forgetUser, HttpError, normalizePhone, requireRole } from '../auth';
 import { followUpInclude, initials, istDay, istToday, meetingInclude, OUTCOME_TO_DB, toAppUser, toFollowUp, toMeeting } from '../dto';
 import { dayTargets, followUpQuery } from '../planning';
 import { withFileUrls } from '../storage';
+import { audit } from '../audit';
+import { revokeAllForUser } from '../sessions';
 import { dayRoute, latestLocations } from '../tracking';
 import { adminFollowUpsQuery, adminMeetingsQuery, adminTargetsQuery, createSalesmanBody, dayRouteQuery, idParam, setTargetBody } from '../schemas';
 import type { AdminFollowUp, AdminOverview, CreateSalesmanInput, FieldStatus, FollowUpScope, MeetingOutcome, SalesmanProgress, SetTargetInput } from '../../../src/types';
@@ -94,7 +96,19 @@ export async function adminRoutes(app: FastifyInstance) {
     const exists = await prisma.user.findUnique({ where: { phone } });
     if (exists) throw new HttpError(409, 'phone_taken', 'This number is already registered.');
     const user = await prisma.user.create({ data: { name, phone, role: 'SALESMAN' } });
+    await audit('salesman_added', req.user!.id, { salesmanId: user.id });
     return toAppUser(user);
+  });
+
+  // Deactivate a salesman: logged out on every phone at once; all their data is kept.
+  app.post<{ Params: { id: string } }>('/admin/salesmen/:id/deactivate', { schema: idParam }, async (req) => {
+    const s = await prisma.user.findUnique({ where: { id: req.params.id } });
+    if (!s || s.role !== 'SALESMAN') throw new HttpError(404, 'not_found', 'Salesman not found.');
+    await prisma.user.update({ where: { id: s.id }, data: { isActive: false } });
+    const sessions = await revokeAllForUser(s.id);
+    forgetUser(s.phone);
+    await audit('salesman_deactivated', req.user!.id, { salesmanId: s.id, sessions });
+    return { ok: true };
   });
 
   app.get<{ Querystring: { salesmanId?: string; limit: number; outcome?: MeetingOutcome; range?: 'today' } }>('/admin/meetings', { schema: adminMeetingsQuery }, async (req) => {

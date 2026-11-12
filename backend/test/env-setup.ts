@@ -8,4 +8,6 @@ Object.assign(process.env, {
   SUPABASE_SERVICE_ROLE_KEY: '',
   DEV_LOGIN_OTP: '123456',
   DEV_JWT_SECRET: 'test-secret-test-secret-test-secret-0000',
+  AUTH_SECRET: 'auth-secret-auth-secret-auth-secret-0000',
+  MESSAGING_PROVIDER: 'mock',
 });
