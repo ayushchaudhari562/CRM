@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Sales CRM",
+    "name": "JTA",
     "slug": "sales-crm",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -43,21 +43,21 @@
       [
         "expo-audio",
         {
-          "microphonePermission": "Allow Sales CRM to record voice notes for your meetings.",
+          "microphonePermission": "Allow JTA to record voice notes for your meetings.",
           "enableBackgroundRecording": true
         }
       ],
       [
         "expo-image-picker",
         {
-          "cameraPermission": "Allow Sales CRM to take a check-in selfie.",
-          "photosPermission": "Allow Sales CRM to attach photos to meetings."
+          "cameraPermission": "Allow JTA to take a check-in selfie.",
+          "photosPermission": "Allow JTA to attach photos to meetings."
         }
       ],
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Allow Sales CRM to verify your location at check-in."
+          "locationWhenInUsePermission": "Allow JTA to verify your location at check-in."
         }
       ],
       "expo-asset",
