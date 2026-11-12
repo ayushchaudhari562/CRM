@@ -32,7 +32,8 @@
       [
         "expo-audio",
         {
-          "microphonePermission": "Allow Sales CRM to record voice notes for your meetings."
+          "microphonePermission": "Allow Sales CRM to record voice notes for your meetings.",
+          "enableBackgroundRecording": true
         }
       ],
       [
@@ -48,7 +49,8 @@
           "locationWhenInUsePermission": "Allow Sales CRM to verify your location at check-in."
         }
       ],
-      "expo-asset"
+      "expo-asset",
+      "@react-native-community/datetimepicker"
     ],
     "extra": {
       "eas": {

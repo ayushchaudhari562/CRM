@@ -9,11 +9,21 @@ import {
   Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ChevronLeft, Check, Mic } from 'lucide-react-native';
+import { useQueryClient } from '@tanstack/react-query';
+import { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
+import { ChevronLeft, Check, CalendarDays } from 'lucide-react-native';
 import { z } from 'zod';
 import { useTheme, fonts } from '../../src/theme';
-import { Button, Field, Chip, SegmentedControl, EmptyView } from '../../src/components';
+import {
+  Button,
+  Field,
+  Chip,
+  SegmentedControl,
+  EmptyView,
+  VoiceRecorder,
+  VOICE_CONTENT_TYPE,
+  type VoiceClip,
+} from '../../src/components';
 import { useAppStore } from '../../src/store';
 import { crmService } from '../../src/services';
 import { formatDateTime } from '../../src/utils/format';
@@ -26,25 +36,19 @@ const schema = z.object({
     .string()
     .trim()
     .refine((v) => v === '' || v.replace(/\D/g, '').length >= 10, 'Enter a valid 10-digit number'),
-  productIds: z.array(z.string()).min(1, 'Select at least one product discussed'),
 });
 
-// Quick choices instead of a date picker library. Covers the common "come back after N days".
-const NEXT_VISIT_OPTIONS = [
-  { label: 'None', days: 0 },
-  { label: 'Tomorrow', days: 1 },
-  { label: 'In 3 days', days: 3 },
-  { label: 'In 7 days', days: 7 },
-] as const;
-const NEXT_VISIT_HOUR = 11; // 11:00 local time
+const NEXT_VISIT_HOUR = 11; // default time for "Tomorrow" and the time picker
 
-function nextVisitDate(days: number): Date | null {
-  if (!days) return null;
+/** Tomorrow at 11:00 local time. */
+function tomorrowAt11(): Date {
   const d = new Date();
-  d.setDate(d.getDate() + days);
+  d.setDate(d.getDate() + 1);
   d.setHours(NEXT_VISIT_HOUR, 0, 0, 0);
   return d;
 }
+
+const CAN_PICK_DATE = Platform.OS === 'android'; // native calendar dialog
 
 export default function MeetingDetailsScreen() {
   const { theme } = useTheme();
@@ -61,17 +65,18 @@ export default function MeetingDetailsScreen() {
   const [clientName, setClientName] = useState('');
   const [businessType, setBusinessType] = useState('');
   const [contactNumber, setContactNumber] = useState('');
-  const [productIds, setProductIds] = useState<string[]>([]);
   const [dealValue, setDealValue] = useState('');
   const [outcome, setOutcome] = useState<MeetingOutcome>('Interested');
   const [note, setNote] = useState('');
-  const [nextVisitDays, setNextVisitDays] = useState<number>(0);
+  const [nextChoice, setNextChoice] = useState<'none' | 'tomorrow' | 'date'>('none');
+  const [nextVisit, setNextVisit] = useState<Date | null>(null);
   const [whatsappReminder, setWhatsappReminder] = useState(true);
+  const [voice, setVoice] = useState<VoiceClip | null>(null);
+  // Uploaded once: pressing Submit again after an error does not upload the same file twice.
+  const [uploadedVoice, setUploadedVoice] = useState<{ uri: string; path: string } | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const products = useQuery({ queryKey: ['products'], queryFn: crmService.getProducts });
 
   // Client search, debounced (wait 300 ms after typing stops). Skipped once a client is picked.
   const [suggestions, setSuggestions] = useState<Client[]>([]);
@@ -120,15 +125,40 @@ export default function MeetingDetailsScreen() {
     setContactNumber(c.contactNumber ?? '');
   };
 
-  const toggleProduct = (id: string) => {
-    setProductIds((list) => (list.includes(id) ? list.filter((p) => p !== id) : [...list, id]));
-    clearError('productIds');
+  const chooseNone = () => {
+    setNextChoice('none');
+    setNextVisit(null);
+  };
+  const chooseTomorrow = () => {
+    setNextChoice('tomorrow');
+    setNextVisit(tomorrowAt11());
+  };
+  // Calendar first, then the time (Android dialogs). Cancel keeps the previous choice.
+  const pickDate = () => {
+    const start = nextChoice === 'date' && nextVisit ? nextVisit : tomorrowAt11();
+    DateTimePickerAndroid.open({
+      value: start,
+      mode: 'date',
+      minimumDate: new Date(),
+      onChange: (e, day) => {
+        if (e.type !== 'set' || !day) return;
+        DateTimePickerAndroid.open({
+          value: start,
+          mode: 'time',
+          onChange: (e2, time) => {
+            if (e2.type !== 'set' || !time) return;
+            const d = new Date(day);
+            d.setHours(time.getHours(), time.getMinutes(), 0, 0);
+            setNextChoice('date');
+            setNextVisit(d);
+          },
+        });
+      },
+    });
   };
 
-  const nextVisit = nextVisitDate(nextVisitDays);
-
   const handleSubmit = async () => {
-    const parsed = schema.safeParse({ clientName, businessType, contactNumber, productIds });
+    const parsed = schema.safeParse({ clientName, businessType, contactNumber });
     if (!parsed.success) {
       const formErrors: Record<string, string> = {};
       parsed.error.issues.forEach((i) => {
@@ -140,13 +170,22 @@ export default function MeetingDetailsScreen() {
     setSubmitError('');
     setIsSubmitting(true);
     try {
+      let voiceNote: { path: string; seconds: number } | null = null;
+      if (voice) {
+        const path =
+          uploadedVoice?.uri === voice.uri
+            ? uploadedVoice.path
+            : await crmService.uploadLocal('voice', voice.uri, VOICE_CONTENT_TYPE);
+        setUploadedVoice({ uri: voice.uri, path });
+        voiceNote = { path, seconds: voice.seconds };
+      }
       const saved = await crmService.createMeeting({
         clientRequestId,
         clientId,
         clientName: clientName.trim(),
         businessType: businessType.trim(),
         contactNumber: contactNumber.trim() || null,
-        productIds,
+        productIds: [],
         dealValue: Number(dealValue.replace(/\D/g, '')) || 0,
         outcome,
         note: note.trim() || null,
@@ -154,6 +193,7 @@ export default function MeetingDetailsScreen() {
         whatsappReminder: !!nextVisit && whatsappReminder,
         checkInAt: checkIn.checkInAt,
         location: checkIn.location,
+        voiceNote,
       });
       setLastSavedMeeting(saved);
       setCheckIn(null);
@@ -262,41 +302,6 @@ export default function MeetingDetailsScreen() {
           error={errors.contactNumber}
         />
 
-        {/* Products */}
-        <View style={styles.sectionBlock}>
-          <Text style={[styles.sectionLabel, { color: theme.colors.muted }]}>
-            Products discussed
-          </Text>
-          {products.isLoading ? (
-            <Text style={[styles.summaryHint, { color: theme.colors.muted }]}>
-              Loading products...
-            </Text>
-          ) : products.error ? (
-            <Button
-              title="Could not load products. Retry"
-              onPress={() => products.refetch()}
-              variant="outline"
-              size="small"
-            />
-          ) : (
-            <View style={styles.chipsRow}>
-              {(products.data ?? []).map((p) => (
-                <Chip
-                  key={p.id}
-                  label={p.name}
-                  selected={productIds.includes(p.id)}
-                  onPress={() => toggleProduct(p.id)}
-                />
-              ))}
-            </View>
-          )}
-          {errors.productIds ? (
-            <Text style={[styles.errorText, { color: theme.colors.adminRedText }]}>
-              {errors.productIds}
-            </Text>
-          ) : null}
-        </View>
-
         <Field
           label="Deal value (₹)"
           value={dealValue}
@@ -328,31 +333,31 @@ export default function MeetingDetailsScreen() {
           inputStyle={styles.noteInput}
         />
 
-        {/* Voice note needs file storage (backend TODO). Shown as unavailable, not faked. */}
-        <View style={[styles.voiceNoteCard, { backgroundColor: theme.colors.surface }]}>
-          <View style={[styles.micButton, { backgroundColor: theme.colors.surface2 }]}>
-            <Mic size={26} color={theme.colors.muted} />
-          </View>
-          <Text style={[styles.recordText, { color: theme.colors.text }]}>
-            Voice notes and photos: coming soon
-          </Text>
-          <Text style={[styles.summaryHint, { color: theme.colors.muted }]}>
-            Needs file storage on the server. Use the note above for now.
-          </Text>
-        </View>
+        <VoiceRecorder value={voice} onChange={setVoice} disabled={isSubmitting} />
 
         {/* Next visit */}
         <View style={styles.sectionBlock}>
           <Text style={[styles.sectionLabel, { color: theme.colors.muted }]}>Next visit</Text>
           <View style={styles.chipsRow}>
-            {NEXT_VISIT_OPTIONS.map((o) => (
+            <Chip label="None" selected={nextChoice === 'none'} onPress={chooseNone} />
+            <Chip label="Tomorrow" selected={nextChoice === 'tomorrow'} onPress={chooseTomorrow} />
+            {CAN_PICK_DATE ? (
               <Chip
-                key={o.label}
-                label={o.label}
-                selected={nextVisitDays === o.days}
-                onPress={() => setNextVisitDays(o.days)}
+                label={
+                  nextChoice === 'date' && nextVisit
+                    ? nextVisit.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+                    : 'Pick date'
+                }
+                icon={
+                  <CalendarDays
+                    size={14}
+                    color={nextChoice === 'date' ? theme.colors.onAccent : theme.colors.text}
+                  />
+                }
+                selected={nextChoice === 'date'}
+                onPress={pickDate}
               />
-            ))}
+            ) : null}
           </View>
           {nextVisit ? (
             <Text style={[styles.summaryHint, { color: theme.colors.muted }]}>

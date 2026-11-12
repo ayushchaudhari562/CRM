@@ -12,3 +12,6 @@ export * from './MapCard';
 export * from './StateViews';
 export * from './OfflineBanner';
 export * from './BottomTabBar';
+export * from './LiveMap';
+export * from './VoicePlayer';
+export * from './VoiceRecorder';

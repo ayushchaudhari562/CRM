@@ -53,7 +53,7 @@ export interface Meeting {
   nextVisit: string | null;
   whatsappReminder: boolean;
   attachments: Attachment[];
-  location: { latitude: number; longitude: number } | null; // null = GPS denied
+  location: { latitude: number; longitude: number; address: string | null } | null; // null = GPS denied
   selfieUrl: string | null;
   checkInAt: string;
   checkOutAt: string | null;
@@ -111,8 +111,7 @@ export interface SetTargetInput {
 
 /** Body of PUT /me/target: the salesman's own target for today. */
 export interface SetMyTargetInput {
-  visitsTarget: number; // 0 = no visits target
-  dealValueTarget: number | null;
+  visitsTarget: number; // 0 = no target
 }
 
 export interface SalesmanHome {
@@ -120,6 +119,8 @@ export interface SalesmanHome {
   visitsTarget: number; // today (0 = no target set)
   followUpsToday: FollowUp[]; // pending, due today
   punchedInAt: string | null; // open punch-in today
+  workedMs: number; // finished shifts today (add now - punchedInAt for the open one)
+  punchedOutAt: string | null; // last punch-out today
 }
 
 export interface ClientDetail extends Client {
@@ -172,7 +173,12 @@ export interface CreateMeetingInput {
   selfiePath?: string | null;
   voiceNote?: { path: string; seconds: number } | null;
   attachments?: { path: string; name: string; type: 'photo' | 'file'; sizeBytes: number }[];
-  location: { latitude: number; longitude: number; accuracy: number | null } | null;
+  location: {
+    latitude: number;
+    longitude: number;
+    accuracy: number | null;
+    address?: string | null; // looked up on the phone
+  } | null;
 }
 
 export interface LatLng {

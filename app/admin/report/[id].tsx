@@ -11,6 +11,7 @@ import {
   Timeline,
   LoadingView,
   ErrorView,
+  VoicePlayer,
   type TimelineItem,
 } from '../../../src/components';
 import { crmService } from '../../../src/services';
@@ -123,7 +124,12 @@ export default function AdminMeetingReportScreen() {
             icon={<MapPin size={16} color={theme.colors.muted} />}
             text={
               m.location
-                ? `GPS ${m.location.latitude.toFixed(5)}, ${m.location.longitude.toFixed(5)}`
+                ? [
+                    m.location.address,
+                    `GPS ${m.location.latitude.toFixed(5)}, ${m.location.longitude.toFixed(5)}`,
+                  ]
+                    .filter(Boolean)
+                    .join('\n')
                 : 'GPS not captured (permission denied)'
             }
           />
@@ -138,7 +144,7 @@ export default function AdminMeetingReportScreen() {
         </Card>
 
         {/* Notes */}
-        {m.note || m.aiSummary ? (
+        {m.note || m.aiSummary || m.voiceNoteDuration ? (
           <Card style={styles.gap8}>
             {m.note ? (
               <>
@@ -146,15 +152,21 @@ export default function AdminMeetingReportScreen() {
                 <Text style={[styles.body, text]}>{m.note}</Text>
               </>
             ) : null}
-            {m.aiSummary ? (
+            {m.voiceNoteDuration || m.aiSummary ? (
               <>
                 <View style={styles.iconRow}>
                   <Mic size={14} color={theme.colors.muted} />
                   <Text style={[styles.small, muted]}>
-                    Voice note{m.voiceNoteDuration ? ` · ${m.voiceNoteDuration}s` : ''} · AI summary
+                    Voice note{m.voiceNoteDuration ? ` · ${m.voiceNoteDuration}s` : ''}
+                    {m.aiSummary ? ' · AI summary' : ''}
                   </Text>
                 </View>
-                <Text style={[styles.body, text]}>{m.aiSummary}</Text>
+                {m.voiceNoteUrl ? (
+                  <VoicePlayer uri={m.voiceNoteUrl} seconds={m.voiceNoteDuration} />
+                ) : m.voiceNoteDuration ? (
+                  <Text style={[styles.small, muted]}>Voice note expired (kept for 30 days)</Text>
+                ) : null}
+                {m.aiSummary ? <Text style={[styles.body, text]}>{m.aiSummary}</Text> : null}
               </>
             ) : null}
           </Card>

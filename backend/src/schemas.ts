@@ -36,7 +36,7 @@ export const createMeetingBody = {
         type: ['object', 'null'],
         additionalProperties: false,
         required: ['path', 'seconds'],
-        properties: { path, seconds: { type: 'integer', minimum: 1, maximum: 600 } },
+        properties: { path, seconds: { type: 'integer', minimum: 1, maximum: 3600 } }, // up to 60 min
       },
       attachments: {
         type: 'array',
@@ -56,6 +56,7 @@ export const createMeetingBody = {
           latitude: { type: 'number', minimum: -90, maximum: 90 },
           longitude: { type: 'number', minimum: -180, maximum: 180 },
           accuracy: { type: ['number', 'null'], minimum: 0 },
+          address: { type: ['string', 'null'], maxLength: 300 },
         },
       },
     },
@@ -120,11 +121,8 @@ export const setMyTargetBody = {
   body: {
     type: 'object',
     additionalProperties: false,
-    required: ['visitsTarget', 'dealValueTarget'],
-    properties: {
-      visitsTarget: { type: 'integer', minimum: 0, maximum: 100 },
-      dealValueTarget: { type: ['number', 'null'], minimum: 0, maximum: 9_999_999_999 },
-    },
+    required: ['visitsTarget'],
+    properties: { visitsTarget: { type: 'integer', minimum: 0, maximum: 100 } },
   },
 } as const;
 

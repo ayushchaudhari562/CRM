@@ -104,6 +104,11 @@ describe('POST /me/sync', () => {
     assert.deepEqual(doneFor, ['cli_0']);
   });
 
+  it('check-in address from the phone is saved (trimmed)', async () => {
+    await sync([visit('a', { location: { latitude: 25.24, longitude: 86.98, accuracy: 5, address: ' 2, Bhikhanpur, Bhagalpur ' } })]);
+    assert.equal(saved('a').checkInAddress, '2, Bhikhanpur, Bhagalpur');
+  });
+
   it('phone clock ahead -> times clamped to now', async () => {
     await sync([visit('a', { checkInAt: new Date(now + 300 * M).toISOString(), checkOutAt: undefined })]);
     assert.ok(Math.abs(saved('a').checkInAt.getTime() - Date.now()) < 5000);
