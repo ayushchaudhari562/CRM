@@ -182,6 +182,8 @@ export const crmService = {
     request<Meeting[]>(
       `/admin/meetings?limit=${limit}${salesmanId ? `&salesmanId=${encodeURIComponent(salesmanId)}` : ''}`,
     ),
+  /** All of today's meetings, newest first (live monitoring). */
+  getTodayMeetings: () => request<Meeting[]>('/admin/meetings?range=today&limit=200'),
   /** Today's meetings with one outcome (admin home pills). */
   getTodayMeetingsByOutcome: (outcome: MeetingOutcome) =>
     request<Meeting[]>(
