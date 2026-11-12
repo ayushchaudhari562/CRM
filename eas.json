@@ -16,14 +16,16 @@
         "EXPO_PUBLIC_SUPABASE_KEY": "sb_publishable_NZgWFfXScNUSCzmynQSU_g_Zux-oOYD",
         "ORG_GRADLE_PROJECT_reactNativeArchitectures": "arm64-v8a"
       },
-      "channel": "preview"
+      "channel": "preview",
+      "environment": "preview"
     },
     "production": {
       "autoIncrement": true,
       "android": {
         "buildType": "app-bundle"
       },
-      "channel": "production"
+      "channel": "production",
+      "environment": "production"
     }
   }
 }

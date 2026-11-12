@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import MapView, { Circle, Marker } from 'react-native-maps';
 import { useTheme, fonts } from '../theme';
+import { MAPS_AVAILABLE } from '../utils/maps';
 
 export interface LiveMapProps {
   latitude: number | null; // null = no position yet
@@ -32,14 +33,26 @@ export function LiveMap({
     }
   }, [has, latitude, longitude]);
 
+  const boxStyle = [
+    styles.box,
+    height ? { height } : styles.fill,
+    { backgroundColor: theme.colors.surface2 },
+  ];
+
+  // No Maps key in this build: show the position as text instead of crashing.
+  if (!MAPS_AVAILABLE) {
+    return (
+      <View style={[boxStyle, styles.center]}>
+        <Text style={[styles.note, { color: theme.colors.text }]}>
+          {has ? `${latitude!.toFixed(6)}, ${longitude!.toFixed(6)}` : 'Finding your location...'}
+        </Text>
+        <Text style={[styles.note, { color: theme.colors.muted }]}>Map view coming soon</Text>
+      </View>
+    );
+  }
+
   return (
-    <View
-      style={[
-        styles.box,
-        height ? { height } : styles.fill,
-        { backgroundColor: theme.colors.surface2 },
-      ]}
-    >
+    <View style={boxStyle}>
       <MapView
         ref={ref}
         style={StyleSheet.absoluteFill}
