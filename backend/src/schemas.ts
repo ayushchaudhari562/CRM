@@ -116,6 +116,18 @@ export const setTargetBody = {
   },
 } as const;
 
+export const setMyTargetBody = {
+  body: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['visitsTarget', 'dealValueTarget'],
+    properties: {
+      visitsTarget: { type: 'integer', minimum: 0, maximum: 100 },
+      dealValueTarget: { type: ['number', 'null'], minimum: 0, maximum: 9_999_999_999 },
+    },
+  },
+} as const;
+
 // Same rules as create; only the fields being changed are sent.
 const m = createMeetingBody.body.properties;
 export const updateMeetingBody = {

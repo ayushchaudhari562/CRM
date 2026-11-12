@@ -94,10 +94,12 @@ export default function SalesmanHomeScreen() {
         {/* Radial Tick Ring */}
         <View style={styles.ringWrapper}>
           <TickRing
-            value={`${home.visitsDone}`}
-            label="Visits today"
+            value={
+              home.visitsTarget ? `${home.visitsDone}/${home.visitsTarget}` : `${home.visitsDone}`
+            }
+            label={home.visitsTarget ? 'Visits done' : 'Visits today'}
             activeCount={home.visitsDone}
-            totalCount={home.visitsTarget || 10} // ring fills toward the target (10 if none)
+            totalCount={home.visitsTarget || 10} // no target yet: ring fills toward 10
             size={220}
           />
         </View>

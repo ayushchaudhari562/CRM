@@ -4,12 +4,12 @@ import { prisma } from '../db';
 import { authenticate, HttpError, requireRole } from '../auth';
 import { editableUntil, followUpInclude, istToday, meetingInclude, OUTCOME_TO_DB, toFollowUp, toMeeting } from '../dto';
 import { followUpQuery, salesmanTargets } from '../planning';
-import { clientSearchQuery, createMeetingBody, createUploadBody, followUpsQuery, locationPingsBody, punchBody, syncBody, idParam, meetingsQuery, targetsQuery, updateFollowUpBody, updateMeetingBody } from '../schemas';
+import { clientSearchQuery, createMeetingBody, createUploadBody, followUpsQuery, locationPingsBody, punchBody, syncBody, idParam, meetingsQuery, setMyTargetBody, targetsQuery, updateFollowUpBody, updateMeetingBody } from '../schemas';
 import { saveMeeting } from '../meetings';
 import { createUpload, withFileUrls } from '../storage';
 import { savePings } from '../tracking';
 import { MEETING_FIELD_GROUP, SALESMAN_EDITABLE } from '../../../src/config';
-import type { ClientDetail, CreateMeetingInput, FollowUpScope, CreateUploadInput, LocationPingsInput, PunchInput, SalesmanHome, SyncInput, SyncResult, UpdateFollowUpInput, UpdateMeetingInput } from '../../../src/types';
+import type { ClientDetail, CreateMeetingInput, FollowUpScope, CreateUploadInput, LocationPingsInput, PunchInput, SalesmanHome, SetMyTargetInput, SyncInput, SyncResult, UpdateFollowUpInput, UpdateMeetingInput } from '../../../src/types';
 
 export async function salesmanRoutes(app: FastifyInstance) {
   app.addHook('onRequest', authenticate);
@@ -70,6 +70,15 @@ export async function salesmanRoutes(app: FastifyInstance) {
   app.get<{ Querystring: { days: number } }>('/me/targets', { schema: targetsQuery }, async (req) =>
     salesmanTargets(req.user!.id, req.query.days),
   );
+
+  // The salesman sets their own target for today (create or overwrite). Returns today's progress.
+  app.put<{ Body: SetMyTargetInput }>('/me/target', { schema: setMyTargetBody }, async (req) => {
+    const salesmanId = req.user!.id;
+    const { date } = istToday();
+    const data = { visitsTarget: req.body.visitsTarget, dealValueTarget: req.body.dealValueTarget };
+    await prisma.target.upsert({ where: { salesmanId_date: { salesmanId, date } }, create: { salesmanId, date, ...data }, update: data });
+    return (await salesmanTargets(salesmanId, 1))[0];
+  });
 
   // Punch in if not punched in today, otherwise punch out.
   app.post<{ Body: PunchInput | null }>('/me/attendance/toggle', { schema: punchBody }, async (req) => {
