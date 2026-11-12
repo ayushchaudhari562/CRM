@@ -184,7 +184,7 @@ function VisitCard({ m }: { m: Meeting }) {
 
       {m.note ? <Text style={[styles.body, { color: theme.colors.text }]}>{m.note}</Text> : null}
 
-      {m.voiceNoteUrl || m.aiSummary ? (
+      {m.voiceNoteDuration || m.aiSummary ? (
         <View style={[styles.summary, { backgroundColor: theme.colors.surface2 }]}>
           <View style={styles.iconRow}>
             <Mic size={14} color={theme.colors.muted} />
@@ -195,6 +195,10 @@ function VisitCard({ m }: { m: Meeting }) {
           </View>
           {m.voiceNoteUrl ? (
             <VoicePlayer uri={m.voiceNoteUrl} seconds={m.voiceNoteDuration} />
+          ) : m.voiceNoteDuration ? (
+            <Text style={[styles.small, { color: theme.colors.muted }]}>
+              Voice note expired (kept for 30 days)
+            </Text>
           ) : null}
           {m.aiSummary ? (
             <Text style={[styles.body, { color: theme.colors.text }]}>{m.aiSummary}</Text>
@@ -204,7 +208,7 @@ function VisitCard({ m }: { m: Meeting }) {
 
       <View style={styles.meta}>
         <Text style={[styles.small, { color: theme.colors.muted }]}>
-          {m.location ? 'GPS captured' : 'GPS not captured'}
+          {m.location ? (m.location.address ?? 'GPS captured') : 'GPS not captured'}
           {m.nextVisit ? ` · Next visit ${formatDateTime(m.nextVisit)}` : ''}
         </Text>
         {m.attachments.length ? (

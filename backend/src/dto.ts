@@ -69,7 +69,7 @@ export function toMeeting(m: MeetingRow): Meeting {
       type: a.type === 'PHOTO' ? 'photo' : 'file',
       size: a.sizeBytes,
     })),
-    location: m.checkInLat !== null && m.checkInLng !== null ? { latitude: m.checkInLat, longitude: m.checkInLng } : null,
+    location: m.checkInLat !== null && m.checkInLng !== null ? { latitude: m.checkInLat, longitude: m.checkInLng, address: m.checkInAddress } : null,
     selfieUrl: m.selfieUrl,
     checkInAt: m.checkInAt.toISOString(),
     checkOutAt: m.checkOutAt?.toISOString() ?? null,

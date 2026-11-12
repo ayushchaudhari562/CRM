@@ -7,7 +7,7 @@ if (!env.storageKey) {
   process.exit(1);
 }
 ensureBucket()
-  .then((r) => console.log(`Bucket "${env.storageBucket}" ${r} (private, max 10 MB, images/audio/pdf only).`))
+  .then((r) => console.log(`Bucket "${env.storageBucket}" ${r} (private, max 30 MB per file, images/audio/pdf only).`))
   .catch((e: Error) => {
     console.error(e.message);
     process.exit(1);

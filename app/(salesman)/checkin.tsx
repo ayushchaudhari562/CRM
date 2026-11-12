@@ -46,7 +46,7 @@ export default function CheckinScreen() {
 
   const handleContinue = () => {
     const location = fix
-      ? { latitude: fix.latitude, longitude: fix.longitude, accuracy: fix.accuracy }
+      ? { latitude: fix.latitude, longitude: fix.longitude, accuracy: fix.accuracy, address }
       : null;
     setCheckIn({ checkInAt, location, selfieUri });
     router.push('/(salesman)/meeting-details');

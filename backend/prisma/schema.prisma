@@ -112,6 +112,7 @@ model Meeting {
   checkInLat      Float? // null when GPS permission was denied
   checkInLng      Float?
   checkInAccuracy Float? // metres
+  checkInAddress  String? // street address looked up on the phone at check-in
   selfieUrl       String? // storage path, not a public URL
   checkOutAt      DateTime? @db.Timestamptz(3)
 

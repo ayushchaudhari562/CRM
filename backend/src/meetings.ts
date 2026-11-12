@@ -78,6 +78,7 @@ export async function saveMeeting(salesmanId: string, b: CreateMeetingInput): Pr
           checkInLat: b.location?.latitude ?? null,
           checkInLng: b.location?.longitude ?? null,
           checkInAccuracy: b.location?.accuracy ?? null,
+          checkInAddress: b.location?.address?.trim() || null,
           checkOutAt,
           outcome: OUTCOME_TO_DB[b.outcome],
           dealValue: b.dealValue,

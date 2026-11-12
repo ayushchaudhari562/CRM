@@ -31,6 +31,7 @@ import type {
   SalesmanLocation,
 } from '../types';
 import Constants from 'expo-constants';
+import * as FileSystem from 'expo-file-system/legacy';
 import { getToken } from './session';
 
 /**
@@ -130,20 +131,35 @@ export const crmService = {
     if (!res.ok) throw new ApiError(res.status, 'upload_failed', 'Could not upload the file.');
     return ticket.path;
   },
-  /** All 3 file steps for a file on the phone. Returns the storage path to send with the meeting. */
+  /**
+   * All 3 file steps for a file on the phone. Returns the storage path to send with the meeting.
+   * The file is checked first and sent natively (JS fetch cannot always read local files).
+   */
   uploadLocal: async (kind: UploadKind, fileUri: string, contentType: string) => {
-    const file = await (await fetch(fileUri)).blob();
+    const info = await FileSystem.getInfoAsync(fileUri);
+    if (!info.exists || !info.size) {
+      throw new ApiError(
+        0,
+        'file_missing',
+        'The recording could not be read. Please record again.',
+      );
+    }
     const ticket = await request<UploadTicket>('/me/uploads', {
       method: 'POST',
-      body: { kind, contentType, sizeBytes: file.size },
+      body: { kind, contentType, sizeBytes: info.size },
     });
-    const res = await fetch(ticket.uploadUrl, {
-      method: 'PUT',
+    const res = await FileSystem.uploadAsync(ticket.uploadUrl, fileUri, {
+      httpMethod: 'PUT',
+      uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
       headers: { 'Content-Type': ticket.contentType },
-      body: file,
     });
-    if (!res.ok)
-      throw new ApiError(res.status, 'upload_failed', 'Could not upload the voice note.');
+    if (res.status < 200 || res.status >= 300) {
+      throw new ApiError(
+        res.status,
+        'upload_failed',
+        'Could not upload the file. Please try again.',
+      );
+    }
     return ticket.path;
   },
   /** Offline queue: max 25 visits per call, oldest first. */

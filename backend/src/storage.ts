@@ -3,6 +3,7 @@
 // Read: API turns stored paths into short-lived signed URLs. The bucket is private; the secret key stays here.
 import { randomUUID } from 'node:crypto';
 import { env } from './env';
+import { prisma } from './db';
 import { HttpError } from './http';
 import type { Meeting, UploadKind } from '../../src/types';
 
@@ -13,7 +14,7 @@ const READ_URL_SECONDS = 3600;
 export const UPLOAD_RULES: Record<UploadKind, { types: Record<string, string>; maxBytes: number }> = {
   selfie: { types: { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }, maxBytes: 5 * 1024 * 1024 },
   photo: { types: { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/heic': 'heic' }, maxBytes: 8 * 1024 * 1024 },
-  voice: { types: { 'audio/mp4': 'm4a', 'audio/m4a': 'm4a', 'audio/aac': 'aac', 'audio/mpeg': 'mp3', 'audio/webm': 'webm' }, maxBytes: 10 * 1024 * 1024 },
+  voice: { types: { 'audio/mp4': 'm4a', 'audio/m4a': 'm4a', 'audio/aac': 'aac', 'audio/mpeg': 'mp3', 'audio/webm': 'webm' }, maxBytes: 30 * 1024 * 1024 }, // 60 min at 32 kbps ≈ 15 MB
   file: { types: { 'application/pdf': 'pdf', 'image/jpeg': 'jpg', 'image/png': 'png' }, maxBytes: 10 * 1024 * 1024 },
 };
 
@@ -96,7 +97,7 @@ export async function withFileUrls<T extends Meeting>(meetings: T[]): Promise<T[
 /** One-time setup: create the private bucket with size + type limits. Safe to run again. */
 export async function ensureBucket() {
   const allTypes = [...new Set(Object.values(UPLOAD_RULES).flatMap((r) => Object.keys(r.types)))];
-  const body = JSON.stringify({ id: env.storageBucket, name: env.storageBucket, public: false, file_size_limit: 10 * 1024 * 1024, allowed_mime_types: allTypes });
+  const body = JSON.stringify({ id: env.storageBucket, name: env.storageBucket, public: false, file_size_limit: Math.max(...Object.values(UPLOAD_RULES).map((r) => r.maxBytes)), allowed_mime_types: allTypes });
   const res = await call('/bucket', { method: 'POST', headers: headers(), body });
   if (res.ok) return 'created';
   const text = await res.text();
@@ -107,4 +108,35 @@ export async function ensureBucket() {
     return 'updated';
   }
   throw new Error(`Bucket create failed: ${res.status} ${text}`);
+}
+
+export const VOICE_KEEP_DAYS = 30;
+
+/**
+ * Deletes voice notes older than VOICE_KEEP_DAYS from storage and clears their path on the meeting
+ * (the length stays, so the app can show "expired"). Runs in batches; returns how many were removed.
+ */
+export async function deleteOldVoiceNotes(now = new Date()): Promise<number> {
+  if (!env.storageKey) return 0;
+  const before = new Date(now.getTime() - VOICE_KEEP_DAYS * 24 * 3600_000);
+  const BATCH = 500;
+  let removed = 0;
+  for (;;) {
+    const rows = await prisma.meeting.findMany({
+      where: { voiceNoteUrl: { not: null }, createdAt: { lt: before } },
+      select: { id: true, voiceNoteUrl: true },
+      take: BATCH,
+    });
+    if (!rows.length) break;
+    const res = await call(`/object/${env.storageBucket}`, {
+      method: 'DELETE',
+      headers: headers(),
+      body: JSON.stringify({ prefixes: rows.map((r) => r.voiceNoteUrl) }),
+    });
+    if (!res.ok) throw new Error(`Voice cleanup failed: ${res.status} ${await res.text()}`);
+    await prisma.meeting.updateMany({ where: { id: { in: rows.map((r) => r.id) } }, data: { voiceNoteUrl: null } });
+    removed += rows.length;
+    if (rows.length < BATCH) break;
+  }
+  return removed;
 }

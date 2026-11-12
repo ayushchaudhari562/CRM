@@ -9,6 +9,8 @@ import {
   type RecordingOptions,
 } from 'expo-audio';
 import { Mic, Square, Trash2 } from 'lucide-react-native';
+import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
+import { isRunningInExpoGo } from 'expo';
 import { useTheme, fonts } from '../theme';
 import { VoicePlayer } from './VoicePlayer';
 
@@ -18,14 +20,17 @@ export interface VoiceClip {
 }
 
 export const VOICE_CONTENT_TYPE = 'audio/mp4'; // m4a (AAC)
-const MAX_SECONDS = 600; // the server accepts up to 10 minutes
+const MAX_SECONDS = 3600; // 60 minutes (the server accepts up to this)
 
-// Speech only: mono, 64 kbps AAC ≈ 0.5 MB a minute (fast to upload on mobile data).
+// Speech only: mono, 32 kbps AAC ≈ 0.24 MB a minute (30 min ≈ 7 MB; fast on mobile data).
 const PRESET: RecordingOptions = {
   ...RecordingPresets.HIGH_QUALITY,
   numberOfChannels: 1,
-  bitRate: 64000,
+  bitRate: 32000,
 };
+
+const KEEP_AWAKE = 'voice-recording';
+const IN_EXPO_GO = isRunningInExpoGo();
 
 const mmss = (ms: number) => {
   const s = Math.floor(ms / 1000);
@@ -47,7 +52,13 @@ export function VoiceRecorder({
   const state = useAudioRecorderState(recorder, 250);
   const [error, setError] = useState('');
   const limit = useRef<ReturnType<typeof setTimeout> | null>(null); // auto-stop at 10 minutes
-  useEffect(() => () => clearTimeout(limit.current ?? undefined), []);
+  useEffect(
+    () => () => {
+      clearTimeout(limit.current ?? undefined);
+      deactivateKeepAwake(KEEP_AWAKE);
+    },
+    [],
+  );
 
   const start = async () => {
     setError('');
@@ -55,7 +66,14 @@ export function VoiceRecorder({
       const perm = await requestRecordingPermissionsAsync();
       if (!perm.granted)
         return setError('Microphone permission is off. Allow it in phone settings.');
-      await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
+      // Keep recording if the screen locks: needs the recording service from the app.json plugin,
+      // which only real builds (APK) have. Expo Go has no such service, so it is off there.
+      await setAudioModeAsync({
+        allowsRecording: true,
+        playsInSilentMode: true,
+        allowsBackgroundRecording: !IN_EXPO_GO,
+      });
+      await activateKeepAwakeAsync(KEEP_AWAKE).catch(() => {}); // screen stays on while recording
       await recorder.prepareToRecordAsync();
       recorder.record();
       limit.current = setTimeout(() => stop(), MAX_SECONDS * 1000);
@@ -66,6 +84,7 @@ export function VoiceRecorder({
 
   const stop = async () => {
     clearTimeout(limit.current ?? undefined);
+    deactivateKeepAwake(KEEP_AWAKE);
     const ms = recorder.getStatus().durationMillis;
     try {
       await recorder.stop();
@@ -131,7 +150,7 @@ export function VoiceRecorder({
       <Text
         style={[styles.hint, { color: error ? theme.colors.adminRedText : theme.colors.muted }]}
       >
-        {error || (state.isRecording ? 'Tap the button to stop' : 'Optional · up to 10 minutes')}
+        {error || (state.isRecording ? 'Tap the button to stop' : 'Optional · up to 60 minutes')}
       </Text>
     </View>
   );

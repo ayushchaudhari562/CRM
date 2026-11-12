@@ -9,7 +9,7 @@ services:
     plan: free
     branch: mvp-refactor
     rootDir: backend
-    buildCommand: npm ci && npx prisma generate
+    buildCommand: npm ci && npx prisma generate && npx prisma migrate deploy # applies new DB columns before the new code starts
     startCommand: npm start
     healthCheckPath: /health
     envVars:

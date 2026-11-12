@@ -6,7 +6,12 @@ import { queryClient } from '../services/queryClient';
 /** Captured on the check-in screen, sent with the meeting. */
 export interface CheckIn {
   checkInAt: string; // ISO
-  location: { latitude: number; longitude: number; accuracy: number | null } | null; // null = GPS denied
+  location: {
+    latitude: number;
+    longitude: number;
+    accuracy: number | null;
+    address?: string | null;
+  } | null; // null = GPS denied
   selfieUri: string | null; // local file; upload comes with the storage backend (TODO)
 }
 

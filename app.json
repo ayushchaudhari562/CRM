@@ -32,7 +32,8 @@
       [
         "expo-audio",
         {
-          "microphonePermission": "Allow Sales CRM to record voice notes for your meetings."
+          "microphonePermission": "Allow Sales CRM to record voice notes for your meetings.",
+          "enableBackgroundRecording": true
         }
       ],
       [
