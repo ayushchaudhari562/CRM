@@ -75,8 +75,8 @@ export async function salesmanRoutes(app: FastifyInstance) {
   app.put<{ Body: SetMyTargetInput }>('/me/target', { schema: setMyTargetBody }, async (req) => {
     const salesmanId = req.user!.id;
     const { date } = istToday();
-    const data = { visitsTarget: req.body.visitsTarget, dealValueTarget: req.body.dealValueTarget };
-    await prisma.target.upsert({ where: { salesmanId_date: { salesmanId, date } }, create: { salesmanId, date, ...data }, update: data });
+    const { visitsTarget } = req.body;
+    await prisma.target.upsert({ where: { salesmanId_date: { salesmanId, date } }, create: { salesmanId, date, visitsTarget }, update: { visitsTarget } });
     return (await salesmanTargets(salesmanId, 1))[0];
   });
 

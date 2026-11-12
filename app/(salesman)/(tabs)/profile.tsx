@@ -6,7 +6,7 @@ import { useAppStore } from '../../../src/store';
 import { Card, Button, Field } from '../../../src/components';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { crmService } from '../../../src/services';
-import { formatINR, formatTime } from '../../../src/utils/format';
+import { formatTime } from '../../../src/utils/format';
 
 export default function SalesmanProfileTab() {
   const { theme } = useTheme();
@@ -96,7 +96,6 @@ function TargetCard() {
   const today = targets?.[0];
   const [editing, setEditing] = useState(false);
   const [visits, setVisits] = useState('');
-  const [deal, setDeal] = useState('');
   const save = useMutation({
     mutationFn: crmService.setMyTarget,
     onSuccess: () => {
@@ -105,19 +104,12 @@ function TargetCard() {
       qc.invalidateQueries({ queryKey: ['home'] });
     },
   });
-  const hasTarget = !!today && (today.visitsTarget > 0 || today.dealValueTarget != null);
+  const hasTarget = !!today && today.visitsTarget > 0;
   const visitsNum = Number(visits || 0);
-  const dealNum = deal.trim() ? Number(deal) : null;
-  const invalid =
-    !Number.isInteger(visitsNum) ||
-    visitsNum < 0 ||
-    visitsNum > 100 ||
-    (dealNum !== null && (!Number.isFinite(dealNum) || dealNum < 0)) ||
-    (visitsNum === 0 && dealNum === null);
+  const invalid = !Number.isInteger(visitsNum) || visitsNum < 1 || visitsNum > 100;
 
   const startEdit = () => {
     setVisits(today?.visitsTarget ? String(today.visitsTarget) : '');
-    setDeal(today?.dealValueTarget != null ? String(today.dealValueTarget) : '');
     save.reset();
     setEditing(true);
   };
@@ -154,14 +146,6 @@ function TargetCard() {
             keyboardType="number-pad"
             placeholder="e.g. 8"
             maxLength={3}
-          />
-          <Field
-            label="Deal value (₹, optional)"
-            value={deal}
-            onChangeText={(t) => setDeal(t.replace(/[^0-9]/g, ''))}
-            keyboardType="number-pad"
-            placeholder="e.g. 50000"
-            maxLength={10}
             error={save.error?.message}
           />
           <View style={styles.editRow}>
@@ -176,7 +160,7 @@ function TargetCard() {
             <View style={{ flex: 1 }}>
               <Button
                 title="Save"
-                onPress={() => save.mutate({ visitsTarget: visitsNum, dealValueTarget: dealNum })}
+                onPress={() => save.mutate({ visitsTarget: visitsNum })}
                 loading={save.isPending}
                 disabled={invalid}
                 variant="primary"
@@ -190,24 +174,12 @@ function TargetCard() {
           No target for today. Tap Set.
         </Text>
       ) : (
-        <>
-          {today.visitsTarget > 0 ? (
-            <TargetRow
-              label="Visits"
-              done={`${today.visitsDone}`}
-              target={`${today.visitsTarget}`}
-              ratio={today.visitsDone / today.visitsTarget}
-            />
-          ) : null}
-          {today.dealValueTarget ? (
-            <TargetRow
-              label="Deals closed"
-              done={formatINR(today.dealValue)}
-              target={formatINR(today.dealValueTarget)}
-              ratio={today.dealValue / today.dealValueTarget}
-            />
-          ) : null}
-        </>
+        <TargetRow
+          label="Visits"
+          done={`${today.visitsDone}`}
+          target={`${today.visitsTarget}`}
+          ratio={today.visitsDone / today.visitsTarget}
+        />
       )}
     </Card>
   );
