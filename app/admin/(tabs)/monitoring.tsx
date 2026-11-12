@@ -7,7 +7,7 @@ import { useTheme, fonts } from '../../../src/theme';
 import { LoadingView, ErrorView } from '../../../src/components';
 import { crmService } from '../../../src/services';
 import type { FieldStatus, SalesmanProgress } from '../../../src/types';
-import { formatINR, timeAgo } from '../../../src/utils/format';
+import { formatINR, formatTime, initialOf, timeAgo } from '../../../src/utils/format';
 
 export default function AdminLiveMonitoringScreen() {
   const { theme } = useTheme();
@@ -25,6 +25,11 @@ export default function AdminLiveMonitoringScreen() {
     refetchInterval: 60_000, // live screen: refresh every minute
     queryFn: () => crmService.getSalesmanProgress(),
   });
+  const { data: todayVisits } = useQuery({
+    queryKey: ['admin-today-visits'],
+    refetchInterval: 60_000,
+    queryFn: () => crmService.getTodayMeetings(),
+  });
 
   if (isLoading) {
     return <LoadingView message="Loading live salesman tracking..." />;
@@ -39,18 +44,13 @@ export default function AdminLiveMonitoringScreen() {
     );
   }
 
-  const total = progressList.length;
-  const matches = (s: SalesmanProgress) => s.name.toLowerCase().includes(searchQuery.toLowerCase());
+  const q = searchQuery.trim().toLowerCase();
+  const has = (...texts: string[]) => !q || texts.some((t) => t.toLowerCase().includes(q));
   const ON_DUTY: FieldStatus[] = ['In meeting', 'On the road'];
   // Punched in right now.
-  const onDuty = progressList.filter((s) => ON_DUTY.includes(s.status) && matches(s));
-  // Did something today (on duty, punched out, or logged a visit). The server lists working ones first.
-  const today = progressList.filter(
-    (s) => (s.status !== 'Not started' || s.visits > 0) && matches(s),
-  );
-  const notStarted = progressList.filter(
-    (s) => s.status === 'Not started' && s.visits === 0,
-  ).length;
+  const onDuty = progressList.filter((s) => ON_DUTY.includes(s.status) && has(s.name));
+  // Today's visits; search matches the salesman or the client.
+  const visits = (todayVisits ?? []).filter((m) => has(m.salesmanName, m.clientName));
 
   return (
     <ScrollView
@@ -115,7 +115,7 @@ export default function AdminLiveMonitoringScreen() {
       <View style={styles.headingBlock}>
         <Text style={[styles.title, { color: theme.colors.text }]}>Live monitoring</Text>
         <Text style={[styles.subtitle, { color: theme.colors.muted }]}>
-          {total} salesmen · updates every minute
+          {progressList.length} salesmen · updates every minute
         </Text>
       </View>
 
@@ -149,46 +149,48 @@ export default function AdminLiveMonitoringScreen() {
         )}
       </View>
 
-      {/* Today&apos;s progress card */}
+      {/* Today's visits (deals): newest first, tap for the full report */}
       <View style={[styles.card, { backgroundColor: theme.colors.surface }]}>
-        <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Today&apos;s progress</Text>
-
+        <Text style={[styles.cardTitle, { color: theme.colors.text }]}>
+          Today&apos;s visits ({visits.length})
+        </Text>
         <View style={styles.salesmenList}>
-          {today.length === 0 ? (
+          {visits.length === 0 ? (
             <Text style={[styles.salesmanSub, { color: theme.colors.muted }]}>
-              No activity yet today.
+              No visits logged yet today.
             </Text>
           ) : null}
-          {today.map((s) => (
+          {visits.map((m) => (
             <Pressable
-              key={s.id}
-              onPress={() => s.lastMeetingId && router.push(`/admin/report/${s.lastMeetingId}`)}
-              disabled={!s.lastMeetingId}
+              key={m.id}
+              onPress={() => router.push(`/admin/report/${m.id}`)}
               accessibilityRole="button"
-              accessibilityLabel={`${s.name}, ${s.status}, ${s.visits} visits today`}
+              accessibilityLabel={`${m.clientName}, ${m.outcome}, by ${m.salesmanName}. Open report`}
               style={({ pressed }) => [styles.salesmanItem, { opacity: pressed ? 0.8 : 1 }]}
             >
               <View style={[styles.avatarBox, { backgroundColor: theme.colors.text }]}>
-                <Text style={[styles.avatarText, { color: theme.colors.bg }]}>{s.initials}</Text>
-              </View>
-
-              <View style={styles.salesmanInfo}>
-                <Text style={[styles.salesmanName, { color: theme.colors.text }]}>{s.name}</Text>
-                <Text style={[styles.salesmanSub, { color: theme.colors.muted }]}>
-                  {s.status} · {s.visits} visits · {timeAgo(s.lastActivityAt)}
+                <Text style={[styles.avatarText, { color: theme.colors.bg }]}>
+                  {initialOf(m.clientName)}
                 </Text>
               </View>
-
-              <Text style={[styles.salesmanAmount, { color: theme.colors.accent }]}>
-                {s.dealValue > 0 ? `+${formatINR(s.dealValue)}` : formatINR(0)}
+              <View style={styles.salesmanInfo}>
+                <Text style={[styles.salesmanName, { color: theme.colors.text }]} numberOfLines={1}>
+                  {m.clientName}
+                </Text>
+                <Text style={[styles.salesmanSub, { color: theme.colors.muted }]} numberOfLines={1}>
+                  {m.outcome} · {m.salesmanName} · {formatTime(m.checkInAt)}
+                </Text>
+              </View>
+              <Text
+                style={[
+                  styles.salesmanAmount,
+                  { color: m.outcome === 'Closed' ? theme.colors.accent : theme.colors.muted },
+                ]}
+              >
+                {formatINR(m.dealValue)}
               </Text>
             </Pressable>
           ))}
-          {notStarted ? (
-            <Text style={[styles.salesmanSub, { color: theme.colors.muted }]}>
-              {notStarted} of {total} salesmen not started today
-            </Text>
-          ) : null}
         </View>
       </View>
     </ScrollView>

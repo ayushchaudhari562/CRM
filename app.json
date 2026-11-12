@@ -69,6 +69,12 @@
       }
     },
     "owner": "ayush_chaudhari",
-    "icon": "./assets/images/icon.png"
+    "icon": "./assets/images/icon.png",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/16cdd5d9-bc42-4246-9783-d189724603a2"
+    }
   }
 }
