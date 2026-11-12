@@ -1,4 +1,5 @@
-// WhatsApp reminder to the salesman on the morning of a follow-up (approved "reminder" template).
+// WhatsApp reminder to the salesman's login number at 8 am on the day of a follow-up (approved "reminder" template:
+// "Good morning {{1}}! Today's task: visit {{2}} at {{3}}. - JTA Manager").
 // Flow per follow-up: claim (reminderClaimedAt) -> send -> mark sent, or schedule a retry, or give up.
 // A claim older than 5 minutes means a run crashed mid-send: the follow-up is picked up again
 // (at-least-once: in that rare case the salesman may get the reminder twice).
@@ -7,7 +8,7 @@ import { env } from './env';
 import { istToday } from './dto';
 import { MessagingError, sendTemplate, type SendTemplate } from './messaging';
 
-export const REMINDER_HOUR_IST = 9; // 9:00 am India time
+export const REMINDER_HOUR_IST = 8; // 8:00 am India time
 export const MAX_ATTEMPTS = 8;
 const STALE_CLAIM_MS = 5 * 60_000;
 const BATCH = 50;
@@ -23,10 +24,10 @@ export function istTime(d: Date): string {
 const backoffMs = (attempt: number, retryAfterSec?: number) =>
   Math.max((retryAfterSec ?? 0) * 1000, Math.min(60, 2 ** (attempt - 1)) * 60_000);
 
-/** Sends today's due reminders (from 9 am IST until the follow-up time). Returns how many were sent. */
+/** Sends today's due reminders (from 8 am IST until the follow-up time). Returns how many were sent. */
 export async function sendDueReminders(now = new Date(), send: SendTemplate = sendTemplate): Promise<number> {
   const { start, end } = istToday(now);
-  if (now.getTime() < start.getTime() + REMINDER_HOUR_IST * 3600_000) return 0; // before 9 am
+  if (now.getTime() < start.getTime() + REMINDER_HOUR_IST * 3600_000) return 0; // before 8 am
   const stale = new Date(now.getTime() - STALE_CLAIM_MS);
   const due = await prisma.followUp.findMany({
     where: {
@@ -46,7 +47,7 @@ export async function sendDueReminders(now = new Date(), send: SendTemplate = se
       dueAt: true,
       reminderAttempts: true,
       client: { select: { name: true } },
-      salesman: { select: { phone: true } },
+      salesman: { select: { phone: true, name: true } },
     },
     orderBy: { dueAt: 'asc' },
     take: BATCH,
@@ -62,7 +63,7 @@ export async function sendDueReminders(now = new Date(), send: SendTemplate = se
     if (!claimed.count) continue;
 
     try {
-      await send(f.salesman.phone, 'reminder', [f.client.name, istTime(f.dueAt)]);
+      await send(f.salesman.phone, 'reminder', [f.salesman.name, f.client.name, istTime(f.dueAt)]);
       await prisma.followUp.updateMany({
         where: { id: f.id },
         data: { whatsappSentAt: new Date(), reminderClaimedAt: null, reminderError: null },

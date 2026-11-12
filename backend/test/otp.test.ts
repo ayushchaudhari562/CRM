@@ -102,8 +102,8 @@ describe('POST /auth/request-otp', () => {
   });
 
   it('sender down -> 503 (not 500) and the code is cancelled', async () => {
-    env.messaging = { provider: 'twilio', accountSid: 'AC1', authToken: 't', from: '+1', templates: { otp: 'HX1', reminder: 'HX2' } };
-    globalThis.fetch = (async () => new Response('down', { status: 500 })) as typeof fetch;
+    env.messaging = { provider: 'meta', token: 't', phoneNumberId: '1', templates: { otp: 'a', reminder: 'b' }, language: 'en' };
+    globalThis.fetch = (async () => new Response('{"error":{"code":2}}', { status: 500 })) as typeof fetch;
     const r = await ask();
     assert.equal(r.statusCode, 503);
     assert.equal(r.json().error, 'messaging_busy');

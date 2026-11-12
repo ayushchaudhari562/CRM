@@ -13,34 +13,30 @@ import {
 import { ThemeProvider, useTheme, baseColors } from '../src/theme';
 import { useAppStore } from '../src/store';
 import { OfflineBanner } from '../src/components';
-import { supabase } from '../src/services/supabase';
-import { clearSession, getToken } from '../src/services/session';
-import { crmService } from '../src/services';
+import { getCachedUser, getRefreshToken, onSessionEnded } from '../src/services/session';
+import { refreshAccess } from '../src/services';
 import { queryClient } from '../src/services/queryClient';
 
-/** On app start: if a saved login exists, load the user (and role) from our API. */
+/**
+ * On app start: a saved login opens the app at once from the cached user (works offline),
+ * then the server is asked for a fresh token. Only the server can end a login (logout / deactivated).
+ */
 function useRestoreSession() {
   const { setUser, setAuthReady } = useAppStore();
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      if (await getToken()) {
-        try {
-          const me = await crmService.getMe();
-          if (!cancelled) setUser(me);
-        } catch {
-          await clearSession(); // expired session or user removed/deactivated
-        }
-      }
-      if (!cancelled) setAuthReady();
-    })();
-    // Session ended elsewhere (token refresh failed, signed out) -> back to login.
-    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'SIGNED_OUT') setUser(null);
+    onSessionEnded(() => {
+      queryClient.clear();
+      setUser(null);
     });
+    (async () => {
+      const [refreshToken, cached] = await Promise.all([getRefreshToken(), getCachedUser()]);
+      if (refreshToken && cached && !cancelled) setUser(cached);
+      if (!cancelled) setAuthReady();
+      if (refreshToken) await refreshAccess().catch(() => {}); // offline: keep the login, retry on the next request
+    })();
     return () => {
       cancelled = true;
-      sub.subscription.unsubscribe();
     };
   }, [setUser, setAuthReady]);
 }

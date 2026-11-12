@@ -33,7 +33,7 @@ import type {
 } from '../types';
 import Constants from 'expo-constants';
 import * as FileSystem from 'expo-file-system/legacy';
-import { getToken } from './session';
+import { getAccessToken, getRefreshToken, saveSession, sessionEnded, type Tokens } from './session';
 
 /**
  * On a phone/emulator "localhost" is the phone itself, not the laptop running the API.
@@ -62,14 +62,9 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(
-  path: string,
-  init: { method?: string; body?: unknown } = {},
-): Promise<T> {
-  const token = await getToken();
-  let res: Response;
+async function send(path: string, init: { method?: string; body?: unknown }, token: string | null) {
   try {
-    res = await fetch(`${API_URL}${path}`, {
+    return await fetch(`${API_URL}${path}`, {
       method: init.method ?? 'GET',
       headers: {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -80,26 +75,76 @@ async function request<T>(
   } catch {
     throw new ApiError(0, 'network', 'No internet connection or server is down. Please try again.');
   }
-  if (!res.ok) {
-    const body = (await res.json().catch(() => null)) as ApiErrorBody | null;
-    throw new ApiError(
-      res.status,
-      body?.error ?? 'server_error',
-      body?.message ?? 'Something went wrong.',
-    );
+}
+
+async function toError(res: Response) {
+  const body = (await res.json().catch(() => null)) as ApiErrorBody | null;
+  return new ApiError(
+    res.status,
+    body?.error ?? 'server_error',
+    body?.message ?? 'Something went wrong.',
+  );
+}
+
+// One refresh at a time: screens that hit an expired token together all wait for the same refresh.
+let refreshing: Promise<string | null> | null = null;
+
+/** New access token from the saved refresh token. null = logged out. Throws only when offline. */
+export function refreshAccess(): Promise<string | null> {
+  refreshing ??= (async () => {
+    try {
+      const refreshToken = await getRefreshToken();
+      if (!refreshToken) return null;
+      const res = await send('/auth/refresh', { method: 'POST', body: { refreshToken } }, null);
+      if (res.ok) {
+        const t = (await res.json()) as Tokens & { user: AppUser };
+        await saveSession(t, t.user);
+        return t.accessToken;
+      }
+      if (res.status === 401 || res.status === 403) {
+        await sessionEnded(); // logged out on the server or deactivated
+        return null;
+      }
+      throw await toError(res); // server trouble: keep the login, try again later
+    } finally {
+      refreshing = null;
+    }
+  })();
+  return refreshing;
+}
+
+async function request<T>(
+  path: string,
+  init: { method?: string; body?: unknown } = {},
+): Promise<T> {
+  let token = getAccessToken() ?? (await refreshAccess().catch(() => null));
+  let res = await send(path, init, token);
+  if (res.status === 401 && token) {
+    // Access token expired (15 min): renew once and retry.
+    token = await refreshAccess();
+    if (token) res = await send(path, init, token);
   }
+  if (!res.ok) throw await toError(res);
   return (await res.json()) as T;
 }
 
 export const crmService = {
   // Any user
   getMe: () => request<AppUser>('/me'),
-  // TEMPORARY: fixed-OTP login checked by our API (see backend/src/devLogin.ts)
-  devLogin: (phone: string, otp: string) =>
-    request<{ token: string; user: AppUser }>('/auth/dev-login', {
+  // OTP login (code sent on WhatsApp by our server)
+  requestOtp: (phone: string) =>
+    request<{ ok: true; resendInSec: number; expiresInSec: number }>('/auth/request-otp', {
+      method: 'POST',
+      body: { phone },
+    }),
+  verifyOtp: (phone: string, otp: string) =>
+    request<Tokens & { user: AppUser }>('/auth/verify-otp', {
       method: 'POST',
       body: { phone, otp },
     }),
+  /** Logout on this phone (best effort: the local login is cleared even if this fails). */
+  logout: (refreshToken: string) =>
+    request<{ ok: true }>('/auth/logout', { method: 'POST', body: { refreshToken } }),
 
   // Salesman (server filters everything by the logged-in salesman)
   getHome: () => request<SalesmanHome>('/me/home'),
