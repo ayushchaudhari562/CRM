@@ -1,47 +1,27 @@
-import React, { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
+import React, { forwardRef, useImperativeHandle, useRef } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
 import { useTheme, fonts } from '../theme';
 import { MAPS_AVAILABLE } from '../utils/maps';
+import { OlaMapView, type OlaMapHandle } from './OlaMapView';
 import type { SalesmanLocation } from '../types';
 
 export interface TeamMapHandle {
   focus: (p: SalesmanLocation) => void;
 }
 
-/** Manager's live map: one marker per salesman (green = on duty, orange = day ended). Light map. */
+const ON_DUTY = '#2E9E5B'; // green pin
+const DAY_ENDED = '#F08C2E'; // orange pin
+
+/** Manager's live map: one pin per salesman (green = on duty, orange = day ended). Light Ola map. */
 export const TeamMap = forwardRef<TeamMapHandle, { points: SalesmanLocation[] }>(function TeamMap(
   { points },
   ref,
 ) {
   const { theme } = useTheme();
-  const map = useRef<MapView>(null);
-  const fitted = useRef(false);
+  const map = useRef<OlaMapHandle>(null);
+  useImperativeHandle(ref, () => ({ focus: (p) => map.current?.focus(p.latitude, p.longitude) }));
 
-  useImperativeHandle(ref, () => ({
-    focus: (p) =>
-      map.current?.animateToRegion(
-        { latitude: p.latitude, longitude: p.longitude, latitudeDelta: 0.01, longitudeDelta: 0.01 },
-        400,
-      ),
-  }));
-
-  // Zoom to show everyone the first time positions arrive.
-  useEffect(() => {
-    if (fitted.current || !points.length) return;
-    fitted.current = true;
-    const t = setTimeout(
-      () =>
-        map.current?.fitToCoordinates(points, {
-          edgePadding: { top: 60, right: 60, bottom: 60, left: 60 },
-          animated: false,
-        }),
-      300,
-    );
-    return () => clearTimeout(t);
-  }, [points]);
-
-  // No Maps key in this build: the list below the map still shows everyone.
+  // No map key in this build: the list below the map still shows everyone.
   if (!MAPS_AVAILABLE) {
     return (
       <View style={[styles.box, styles.center, { backgroundColor: theme.colors.surface2 }]}>
@@ -54,25 +34,16 @@ export const TeamMap = forwardRef<TeamMapHandle, { points: SalesmanLocation[] }>
 
   return (
     <View style={[styles.box, { backgroundColor: theme.colors.surface2 }]}>
-      <MapView
+      <OlaMapView
         ref={map}
-        style={StyleSheet.absoluteFill}
-        initialRegion={{ latitude: 22.5, longitude: 79, latitudeDelta: 25, longitudeDelta: 25 }} // India
-        userInterfaceStyle="light"
-        rotateEnabled={false}
-        pitchEnabled={false}
-        toolbarEnabled={false}
-      >
-        {points.map((p) => (
-          <Marker
-            key={p.salesmanId}
-            coordinate={{ latitude: p.latitude, longitude: p.longitude }}
-            title={p.salesmanName}
-            description={p.onDuty ? 'On duty' : 'Day ended'}
-            pinColor={p.onDuty ? 'green' : 'orange'} // Android pins support hues only (no grey)
-          />
-        ))}
-      </MapView>
+        pins={points.map((p) => ({
+          id: p.salesmanId,
+          latitude: p.latitude,
+          longitude: p.longitude,
+          color: p.onDuty ? ON_DUTY : DAY_ENDED,
+          label: `${p.salesmanName} · ${p.onDuty ? 'On duty' : 'Day ended'}`,
+        }))}
+      />
     </View>
   );
 });
