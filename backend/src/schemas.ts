@@ -23,6 +23,7 @@ export const createMeetingBody = {
       clientName: str(120, 1),
       businessType: str(80, 1),
       contactNumber: nullable(str(20)),
+      clientAddress: nullable(str(300)), // typed by the salesman; optional
       productIds: { type: 'array', maxItems: 50, uniqueItems: true, items: id },
       dealValue: { type: 'number', minimum: 0, maximum: 9_999_999_999 }, // Decimal(12,2)
       outcome: { type: 'string', enum: ['Interested', 'Closed', 'Not interested'] },

@@ -50,6 +50,7 @@ export async function saveMeeting(salesmanId: string, b: CreateMeetingInput): Pr
     .$transaction(async (tx) => {
       let clientId = b.clientId;
       let isNewClient = false;
+      const address = b.clientAddress?.trim() || null; // shop address typed by the salesman
       if (clientId) {
         // Existing client must be mine.
         const owned = await tx.client.findFirst({ where: { id: clientId, salesmanId }, select: { id: true } });
@@ -63,9 +64,11 @@ export async function saveMeeting(salesmanId: string, b: CreateMeetingInput): Pr
         });
         clientId =
           same?.id ??
-          (await tx.client.create({ data: { salesmanId, name, businessType, contactNumber: b.contactNumber?.trim() || null }, select: { id: true } })).id;
+          (await tx.client.create({ data: { salesmanId, name, businessType, contactNumber: b.contactNumber?.trim() || null, address }, select: { id: true } })).id;
         isNewClient = !same;
       }
+      // Typed address fills an existing client's empty address (an address already saved is not overwritten).
+      if (address && !isNewClient) await tx.client.updateMany({ where: { id: clientId, salesmanId, address: null }, data: { address } });
       // Visiting the client again completes the pending follow-ups for them (a new one comes from nextVisit below).
       if (!isNewClient) await tx.followUp.updateMany({ where: { salesmanId, clientId, status: 'PENDING' }, data: { status: 'DONE' } });
       const nextVisitAt = b.nextVisit ? new Date(b.nextVisit) : null;

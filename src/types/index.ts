@@ -43,6 +43,7 @@ export interface Meeting {
   clientName: string;
   businessType: string;
   contactNumber: string | null;
+  clientAddress: string | null; // shop address typed by the salesman
   products: string[];
   dealValue: number;
   outcome: MeetingOutcome;
@@ -161,6 +162,7 @@ export interface CreateMeetingInput {
   clientName: string;
   businessType: string;
   contactNumber: string | null;
+  clientAddress?: string | null; // exact shop address typed by the salesman
   productIds: string[];
   dealValue: number;
   outcome: MeetingOutcome;

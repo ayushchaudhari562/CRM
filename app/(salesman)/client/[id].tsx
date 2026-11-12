@@ -4,7 +4,7 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
-import { ChevronLeft, Lock, MapPin, Mic, Paperclip, Phone } from 'lucide-react-native';
+import { ChevronLeft, Lock, MapPin, Mic, Paperclip, Phone, Store } from 'lucide-react-native';
 import { useTheme, fonts } from '../../../src/theme';
 import {
   Card,
@@ -80,9 +80,16 @@ export default function ClientDetailScreen() {
           value={client.contactNumber ?? 'Not added'}
         />
         <InfoRow
+          icon={<Store size={16} color={theme.colors.muted} />}
+          label="Shop"
+          value={client.address ?? 'Not written'}
+        />
+        <InfoRow
           icon={<MapPin size={16} color={theme.colors.muted} />}
-          label="Address"
-          value={client.address ?? 'Not added'}
+          label="GPS"
+          value={
+            client.meetings.find((m) => m.location?.address)?.location?.address ?? 'Not captured'
+          }
         />
       </Card>
 
@@ -204,7 +211,7 @@ function VisitCard({ m }: { m: Meeting }) {
 
       <View style={styles.meta}>
         <Text style={[styles.small, { color: theme.colors.muted }]}>
-          {m.location ? (m.location.address ?? 'GPS captured') : 'GPS not captured'}
+          {m.location ? `GPS: ${m.location.address ?? 'captured'}` : 'GPS not captured'}
           {m.nextVisit ? ` · Next visit ${formatDateTime(m.nextVisit)}` : ''}
         </Text>
         {m.attachments.length ? (
