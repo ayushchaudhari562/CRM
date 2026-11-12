@@ -49,6 +49,7 @@ export async function saveMeeting(salesmanId: string, b: CreateMeetingInput): Pr
   const meeting = await prisma
     .$transaction(async (tx) => {
       let clientId = b.clientId;
+      let isNewClient = false;
       if (clientId) {
         // Existing client must be mine.
         const owned = await tx.client.findFirst({ where: { id: clientId, salesmanId }, select: { id: true } });
@@ -63,7 +64,10 @@ export async function saveMeeting(salesmanId: string, b: CreateMeetingInput): Pr
         clientId =
           same?.id ??
           (await tx.client.create({ data: { salesmanId, name, businessType, contactNumber: b.contactNumber?.trim() || null }, select: { id: true } })).id;
+        isNewClient = !same;
       }
+      // Visiting the client again completes the pending follow-ups for them (a new one comes from nextVisit below).
+      if (!isNewClient) await tx.followUp.updateMany({ where: { salesmanId, clientId, status: 'PENDING' }, data: { status: 'DONE' } });
       const nextVisitAt = b.nextVisit ? new Date(b.nextVisit) : null;
       const m = await tx.meeting.create({
         data: {
