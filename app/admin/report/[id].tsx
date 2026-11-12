@@ -144,7 +144,7 @@ export default function AdminMeetingReportScreen() {
         </Card>
 
         {/* Notes */}
-        {m.note || m.aiSummary || m.voiceNoteDuration ? (
+        {m.note || m.aiSummary || m.voiceNoteUrl ? (
           <Card style={styles.gap8}>
             {m.note ? (
               <>
@@ -152,7 +152,7 @@ export default function AdminMeetingReportScreen() {
                 <Text style={[styles.body, text]}>{m.note}</Text>
               </>
             ) : null}
-            {m.voiceNoteDuration || m.aiSummary ? (
+            {m.voiceNoteUrl || m.aiSummary ? (
               <>
                 <View style={styles.iconRow}>
                   <Mic size={14} color={theme.colors.muted} />
@@ -163,8 +163,6 @@ export default function AdminMeetingReportScreen() {
                 </View>
                 {m.voiceNoteUrl ? (
                   <VoicePlayer uri={m.voiceNoteUrl} seconds={m.voiceNoteDuration} />
-                ) : m.voiceNoteDuration ? (
-                  <Text style={[styles.small, muted]}>Voice note expired (kept for 30 days)</Text>
                 ) : null}
                 {m.aiSummary ? <Text style={[styles.body, text]}>{m.aiSummary}</Text> : null}
               </>

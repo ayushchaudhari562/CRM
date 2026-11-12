@@ -1,9 +1,9 @@
 // Private file storage (Supabase Storage, REST API, no extra library).
 // Upload: API gives the phone a one-time signed upload URL; the file goes straight to storage, never through us.
 // Read: API turns stored paths into short-lived signed URLs. The bucket is private; the secret key stays here.
+// Files are kept for life: nothing here deletes them.
 import { randomUUID } from 'node:crypto';
 import { env } from './env';
-import { prisma } from './db';
 import { HttpError } from './http';
 import type { Meeting, UploadKind } from '../../src/types';
 
@@ -108,35 +108,4 @@ export async function ensureBucket() {
     return 'updated';
   }
   throw new Error(`Bucket create failed: ${res.status} ${text}`);
-}
-
-export const VOICE_KEEP_DAYS = 30;
-
-/**
- * Deletes voice notes older than VOICE_KEEP_DAYS from storage and clears their path on the meeting
- * (the length stays, so the app can show "expired"). Runs in batches; returns how many were removed.
- */
-export async function deleteOldVoiceNotes(now = new Date()): Promise<number> {
-  if (!env.storageKey) return 0;
-  const before = new Date(now.getTime() - VOICE_KEEP_DAYS * 24 * 3600_000);
-  const BATCH = 500;
-  let removed = 0;
-  for (;;) {
-    const rows = await prisma.meeting.findMany({
-      where: { voiceNoteUrl: { not: null }, createdAt: { lt: before } },
-      select: { id: true, voiceNoteUrl: true },
-      take: BATCH,
-    });
-    if (!rows.length) break;
-    const res = await call(`/object/${env.storageBucket}`, {
-      method: 'DELETE',
-      headers: headers(),
-      body: JSON.stringify({ prefixes: rows.map((r) => r.voiceNoteUrl) }),
-    });
-    if (!res.ok) throw new Error(`Voice cleanup failed: ${res.status} ${await res.text()}`);
-    await prisma.meeting.updateMany({ where: { id: { in: rows.map((r) => r.id) } }, data: { voiceNoteUrl: null } });
-    removed += rows.length;
-    if (rows.length < BATCH) break;
-  }
-  return removed;
 }
