@@ -65,6 +65,8 @@ export default function MeetingDetailsScreen() {
   const [clientName, setClientName] = useState('');
   const [businessType, setBusinessType] = useState('');
   const [contactNumber, setContactNumber] = useState('');
+  const [shopAddress, setShopAddress] = useState('');
+  const [savedAddress, setSavedAddress] = useState(false); // picked client already has an address
   const [dealValue, setDealValue] = useState('');
   const [outcome, setOutcome] = useState<MeetingOutcome>('Interested');
   const [note, setNote] = useState('');
@@ -115,6 +117,7 @@ export default function MeetingDetailsScreen() {
   const onClientNameChange = (text: string) => {
     setClientName(text);
     setClientId(null); // typing again = not the picked client any more
+    setSavedAddress(false);
     clearError('clientName');
   };
 
@@ -123,6 +126,8 @@ export default function MeetingDetailsScreen() {
     setClientName(c.name);
     setBusinessType(c.businessType);
     setContactNumber(c.contactNumber ?? '');
+    setShopAddress(c.address ?? '');
+    setSavedAddress(!!c.address);
   };
 
   const chooseNone = () => {
@@ -185,6 +190,7 @@ export default function MeetingDetailsScreen() {
         clientName: clientName.trim(),
         businessType: businessType.trim(),
         contactNumber: contactNumber.trim() || null,
+        clientAddress: shopAddress.trim() || null,
         productIds: [],
         dealValue: Number(dealValue.replace(/\D/g, '')) || 0,
         outcome,
@@ -300,6 +306,21 @@ export default function MeetingDetailsScreen() {
           keyboardType="phone-pad"
           placeholder="98765 43210"
           error={errors.contactNumber}
+        />
+
+        <Field
+          label="Shop address (exact)"
+          value={shopAddress}
+          onChangeText={setShopAddress}
+          editable={!savedAddress}
+          placeholder="e.g. Shop 12, Main Bazar, near SBI ATM"
+          maxLength={300}
+          multiline
+          hint={
+            checkIn.location?.address
+              ? `Nearby (GPS): ${checkIn.location.address}`
+              : 'GPS address not found. Write the address yourself.'
+          }
         />
 
         <Field

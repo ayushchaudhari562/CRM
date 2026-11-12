@@ -21,3 +21,6 @@ Thumbs.db
 .env
 .env.*
 !.env.example
+
+# local test logins (fixed OTP)
+TEST_LOGINS.txt

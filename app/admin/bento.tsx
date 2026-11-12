@@ -294,6 +294,14 @@ export default function AdminWebBentoScreen() {
                     ]}
                   />
                 ) : null}
+                {o.fieldStatus.dayEnded ? (
+                  <View
+                    style={[
+                      styles.fieldStatusSeg,
+                      { flex: o.fieldStatus.dayEnded, backgroundColor: theme.colors.muted },
+                    ]}
+                  />
+                ) : null}
                 {o.fieldStatus.notStarted ? (
                   <View
                     style={[
@@ -323,6 +331,16 @@ export default function AdminWebBentoScreen() {
                   </Text>
                   <Text style={[styles.statusMiniCount, { color: theme.colors.text }]}>
                     {o.fieldStatus.onRoad}
+                  </Text>
+                </View>
+
+                <View style={styles.statusCol}>
+                  <View style={[styles.statusMiniDot, { backgroundColor: theme.colors.muted }]} />
+                  <Text style={[styles.statusMiniText, { color: theme.colors.text }]}>
+                    Day ended
+                  </Text>
+                  <Text style={[styles.statusMiniCount, { color: theme.colors.text }]}>
+                    {o.fieldStatus.dayEnded}
                   </Text>
                 </View>
 

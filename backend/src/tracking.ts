@@ -32,10 +32,16 @@ export async function savePings(salesmanId: string, pings: LocationPingsInput['p
 /** Last point today for every active salesman: one query (DISTINCT ON uses the salesmanId+recordedAt index). */
 export async function latestLocations(): Promise<SalesmanLocation[]> {
   const { start } = istToday();
-  const rows = await prisma.$queryRaw<{ salesmanId: string; name: string; latitude: number; longitude: number; accuracy: number | null; recordedAt: Date }[]>`
-    SELECT DISTINCT ON (p."salesmanId") p."salesmanId", u.name, p.latitude, p.longitude, p.accuracy, p."recordedAt"
-    FROM "LocationPing" p JOIN "User" u ON u.id = p."salesmanId"
-    WHERE p."recordedAt" >= ${start} AND u."isActive" AND u.role = 'SALESMAN'
+  // Latest of: GPS pings and the punch-in point (so a salesman shows up the moment they punch in).
+  const rows = await prisma.$queryRaw<{ salesmanId: string; name: string; latitude: number; longitude: number; accuracy: number | null; recordedAt: Date; onDuty: boolean }[]>`
+    SELECT DISTINCT ON (p."salesmanId") p."salesmanId", u.name, p.latitude, p.longitude, p.accuracy, p."recordedAt",
+      EXISTS (SELECT 1 FROM "Attendance" a WHERE a."salesmanId" = p."salesmanId" AND a."punchInAt" >= ${start} AND a."punchOutAt" IS NULL) AS "onDuty"
+    FROM (
+      SELECT "salesmanId", latitude, longitude, accuracy, "recordedAt" FROM "LocationPing" WHERE "recordedAt" >= ${start}
+      UNION ALL
+      SELECT "salesmanId", "punchInLat", "punchInLng", NULL, "punchInAt" FROM "Attendance" WHERE "punchInAt" >= ${start} AND "punchInLat" IS NOT NULL
+    ) p JOIN "User" u ON u.id = p."salesmanId"
+    WHERE u."isActive" AND u.role = 'SALESMAN'
     ORDER BY p."salesmanId", p."recordedAt" DESC`;
   return rows.map((r) => ({
     salesmanId: r.salesmanId,
@@ -44,6 +50,7 @@ export async function latestLocations(): Promise<SalesmanLocation[]> {
     longitude: r.longitude,
     accuracy: r.accuracy,
     recordedAt: r.recordedAt.toISOString(),
+    onDuty: r.onDuty,
   }));
 }
 

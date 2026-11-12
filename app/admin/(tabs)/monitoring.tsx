@@ -40,17 +40,17 @@ export default function AdminLiveMonitoringScreen() {
   }
 
   const total = progressList.length;
-  const count = (st: FieldStatus) => progressList.filter((p) => p.status === st).length;
-  const pct = (n: number) => (total ? Math.round((n / total) * 100) : 0);
-  const rows = [
-    { label: 'In meeting' as const, color: theme.colors.accent },
-    { label: 'On the road' as const, color: theme.colors.text },
-    { label: 'Not started' as const, color: theme.colors.statusIdle },
-  ].map((r) => ({ ...r, n: count(r.label) }));
-
-  const filteredSalesmen = progressList.filter((s) =>
-    s.name.toLowerCase().includes(searchQuery.toLowerCase()),
+  const matches = (s: SalesmanProgress) => s.name.toLowerCase().includes(searchQuery.toLowerCase());
+  const ON_DUTY: FieldStatus[] = ['In meeting', 'On the road'];
+  // Punched in right now.
+  const onDuty = progressList.filter((s) => ON_DUTY.includes(s.status) && matches(s));
+  // Did something today (on duty, punched out, or logged a visit). The server lists working ones first.
+  const today = progressList.filter(
+    (s) => (s.status !== 'Not started' || s.visits > 0) && matches(s),
   );
+  const notStarted = progressList.filter(
+    (s) => s.status === 'Not started' && s.visits === 0,
+  ).length;
 
   return (
     <ScrollView
@@ -119,34 +119,34 @@ export default function AdminLiveMonitoringScreen() {
         </Text>
       </View>
 
-      {/* Segmented Status Bar */}
-      <View style={styles.segmentedBarWrapper}>
-        <View style={styles.segmentedBar}>
-          {rows.map((r) =>
-            r.n ? (
-              <View
-                key={r.label}
-                style={[styles.barSegment, { flex: r.n, backgroundColor: r.color }]}
-              />
-            ) : null,
-          )}
-        </View>
-      </View>
-
-      {/* Field status card */}
+      {/* Punched in right now */}
       <View style={[styles.card, { backgroundColor: theme.colors.surface }]}>
-        <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Field status</Text>
-
-        {rows.map((r) => (
-          <View key={r.label} style={styles.statusRow}>
-            <View style={[styles.statusSquare, { backgroundColor: r.color }]} />
-            <Text style={[styles.statusLabel, { color: theme.colors.text }]}>{r.label}</Text>
-            <Text style={[styles.statusFraction, { color: theme.colors.muted }]}>
-              {r.n}/{total}
-            </Text>
-            <Text style={[styles.statusPercent, { color: theme.colors.text }]}>{pct(r.n)}%</Text>
-          </View>
-        ))}
+        <Text style={[styles.cardTitle, { color: theme.colors.text }]}>
+          On duty now ({onDuty.length})
+        </Text>
+        {onDuty.length ? (
+          onDuty.map((s) => (
+            <View key={s.id} style={styles.statusRow}>
+              <View
+                style={[
+                  styles.statusSquare,
+                  {
+                    backgroundColor:
+                      s.status === 'In meeting' ? theme.colors.accent : theme.colors.text,
+                  },
+                ]}
+              />
+              <Text style={[styles.statusLabel, { color: theme.colors.text }]}>{s.name}</Text>
+              <Text style={[styles.statusFraction, { color: theme.colors.muted }]}>
+                {s.status} · {timeAgo(s.lastActivityAt)}
+              </Text>
+            </View>
+          ))
+        ) : (
+          <Text style={[styles.salesmanSub, { color: theme.colors.muted }]}>
+            No one is punched in right now.
+          </Text>
+        )}
       </View>
 
       {/* Today&apos;s progress card */}
@@ -154,7 +154,12 @@ export default function AdminLiveMonitoringScreen() {
         <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Today&apos;s progress</Text>
 
         <View style={styles.salesmenList}>
-          {filteredSalesmen.map((s) => (
+          {today.length === 0 ? (
+            <Text style={[styles.salesmanSub, { color: theme.colors.muted }]}>
+              No activity yet today.
+            </Text>
+          ) : null}
+          {today.map((s) => (
             <Pressable
               key={s.id}
               onPress={() => s.lastMeetingId && router.push(`/admin/report/${s.lastMeetingId}`)}
@@ -179,6 +184,11 @@ export default function AdminLiveMonitoringScreen() {
               </Text>
             </Pressable>
           ))}
+          {notStarted ? (
+            <Text style={[styles.salesmanSub, { color: theme.colors.muted }]}>
+              {notStarted} of {total} salesmen not started today
+            </Text>
+          ) : null}
         </View>
       </View>
     </ScrollView>

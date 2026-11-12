@@ -53,6 +53,7 @@ export function toMeeting(m: MeetingRow): Meeting {
     clientName: m.client.name,
     businessType: m.client.businessType,
     contactNumber: m.client.contactNumber,
+    clientAddress: m.client.address,
     products: m.products.map((p) => p.name),
     dealValue: Number(m.dealValue),
     outcome: OUTCOME_TO_API[m.outcome],

@@ -8,6 +8,7 @@ import type {
   CreateMeetingInput,
   CreateSalesmanInput,
   Meeting,
+  MeetingOutcome,
   Product,
   SalesmanHome,
   SalesmanProgress,
@@ -180,6 +181,11 @@ export const crmService = {
   getAllMeetings: (limit = 50, salesmanId?: string) =>
     request<Meeting[]>(
       `/admin/meetings?limit=${limit}${salesmanId ? `&salesmanId=${encodeURIComponent(salesmanId)}` : ''}`,
+    ),
+  /** Today's meetings with one outcome (admin home pills). */
+  getTodayMeetingsByOutcome: (outcome: MeetingOutcome) =>
+    request<Meeting[]>(
+      `/admin/meetings?range=today&limit=200&outcome=${encodeURIComponent(outcome)}`,
     ),
   getLatestLocations: () => request<SalesmanLocation[]>('/admin/locations'),
   getDayRoute: (salesmanId: string, date?: string) =>

@@ -1,52 +1,69 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useRef } from 'react';
+import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { crmService } from '../../../src/services';
 import { useTheme, fonts } from '../../../src/theme';
-import { MapCard, Card } from '../../../src/components';
+import { Card, TeamMap, type TeamMapHandle } from '../../../src/components';
+import { timeAgo } from '../../../src/utils/format';
 
-// Map is a placeholder (real map needs a maps library). Pin count = real numbers.
-const PLACEHOLDER_PINS = [
-  { x: 120, y: 70 },
-  { x: 200, y: 120 },
-  { x: 260, y: 60 },
-  { x: 90, y: 50 },
-  { x: 180, y: 110 },
-  { x: 140, y: 140 },
-  { x: 290, y: 130 },
-  { x: 60, y: 120 },
-];
-
+/** Manager: where each salesman is now (latest GPS point or punch-in point today). */
 export default function AdminMapScreen() {
   const { theme } = useTheme();
-  const { data: o } = useQuery({
-    queryKey: ['admin-overview'],
-    queryFn: crmService.getAdminOverview,
+  const map = useRef<TeamMapHandle>(null);
+  const { data: points = [], isLoading } = useQuery({
+    queryKey: ['admin-locations'],
+    queryFn: crmService.getLatestLocations,
+    refetchInterval: 30_000, // live: every 30 s
   });
+  const sorted = [...points].sort(
+    (a, b) => Number(b.onDuty) - Number(a.onDuty) || a.salesmanName.localeCompare(b.salesmanName),
+  );
+  const onDuty = points.filter((p) => p.onDuty).length;
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.bg }]}>
       <View style={styles.header}>
         <Text style={[styles.title, { color: theme.colors.text }]}>Live Field Map</Text>
         <Text style={[styles.subtitle, { color: theme.colors.muted }]}>
-          Map placeholder · {o ? `${o.salesmenCount} salesmen` : 'loading...'}
+          {isLoading ? 'Loading...' : `${onDuty} on duty · updates every 30 s`}
         </Text>
       </View>
 
       <View style={styles.mapWrapper}>
-        <MapCard
-          height={320}
-          pins={PLACEHOLDER_PINS.slice(0, o ? o.fieldStatus.inMeeting + o.fieldStatus.onRoad : 0)}
-        />
+        <TeamMap ref={map} points={points} />
       </View>
 
-      <Card surface="surface" style={styles.infoCard}>
-        <Text style={[styles.infoTitle, { color: theme.colors.text }]}>Active Territory</Text>
-        <Text style={[styles.infoSub, { color: theme.colors.muted }]}>
-          {o
-            ? `${o.fieldStatus.inMeeting} in client meetings, ${o.fieldStatus.onRoad} on the road, ${o.fieldStatus.notStarted} not started.`
-            : 'Loading...'}
-        </Text>
+      <Card surface="surface" style={styles.listCard}>
+        {sorted.length === 0 ? (
+          <Text style={[styles.sub, { color: theme.colors.muted }]}>
+            {isLoading ? 'Loading...' : 'No salesman has punched in today yet.'}
+          </Text>
+        ) : (
+          <ScrollView>
+            {sorted.map((p) => (
+              <Pressable
+                key={p.salesmanId}
+                onPress={() => map.current?.focus(p)}
+                accessibilityRole="button"
+                accessibilityLabel={`${p.salesmanName}, ${p.onDuty ? 'on duty' : 'day ended'}. Show on map`}
+                style={({ pressed }) => [styles.row, { opacity: pressed ? 0.6 : 1 }]}
+              >
+                <View
+                  style={[
+                    styles.dot,
+                    { backgroundColor: p.onDuty ? theme.colors.accent : theme.colors.warning },
+                  ]}
+                />
+                <Text style={[styles.name, { color: theme.colors.text }]} numberOfLines={1}>
+                  {p.salesmanName}
+                </Text>
+                <Text style={[styles.sub, { color: theme.colors.muted }]}>
+                  {p.onDuty ? 'On duty' : 'Day ended'} · {timeAgo(p.recordedAt)}
+                </Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        )}
       </Card>
     </View>
   );
@@ -57,7 +74,8 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingTop: 16,
     paddingHorizontal: 20,
-    gap: 16,
+    paddingBottom: 16,
+    gap: 14,
   },
   header: {
     gap: 4,
@@ -71,19 +89,30 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   mapWrapper: {
-    borderRadius: 22,
-    overflow: 'hidden',
+    flex: 1,
   },
-  infoCard: {
-    gap: 6,
+  listCard: {
+    padding: 14,
+    maxHeight: 220,
   },
-  infoTitle: {
-    fontFamily: fonts.semibold,
-    fontSize: 16,
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    minHeight: 44,
   },
-  infoSub: {
+  dot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  name: {
+    fontFamily: fonts.medium,
+    fontSize: 15,
+    flex: 1,
+  },
+  sub: {
     fontFamily: fonts.regular,
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: 12,
   },
 });

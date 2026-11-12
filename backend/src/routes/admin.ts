@@ -2,12 +2,12 @@
 import type { FastifyInstance } from 'fastify';
 import { prisma } from '../db';
 import { authenticate, HttpError, normalizePhone, requireRole } from '../auth';
-import { followUpInclude, initials, istDay, istToday, meetingInclude, toAppUser, toFollowUp, toMeeting } from '../dto';
+import { followUpInclude, initials, istDay, istToday, meetingInclude, OUTCOME_TO_DB, toAppUser, toFollowUp, toMeeting } from '../dto';
 import { dayTargets, followUpQuery } from '../planning';
 import { withFileUrls } from '../storage';
 import { dayRoute, latestLocations } from '../tracking';
 import { adminFollowUpsQuery, adminMeetingsQuery, adminTargetsQuery, createSalesmanBody, dayRouteQuery, idParam, setTargetBody } from '../schemas';
-import type { AdminFollowUp, AdminOverview, CreateSalesmanInput, FieldStatus, FollowUpScope, SalesmanProgress, SetTargetInput } from '../../../src/types';
+import type { AdminFollowUp, AdminOverview, CreateSalesmanInput, FieldStatus, FollowUpScope, MeetingOutcome, SalesmanProgress, SetTargetInput } from '../../../src/types';
 
 /** Today's field status + numbers for every active salesman. Used by overview and monitoring. */
 async function todayProgress(): Promise<SalesmanProgress[]> {
@@ -25,7 +25,7 @@ async function todayProgress(): Promise<SalesmanProgress[]> {
   return salesmen.map((s) => {
     const inMeeting = s.meetings.some((m) => m.checkOutAt === null);
     const punchedIn = s.attendance.some((a) => a.punchOutAt === null);
-    const status: FieldStatus = inMeeting ? 'In meeting' : punchedIn ? 'On the road' : 'Not started';
+    const status: FieldStatus = inMeeting ? 'In meeting' : punchedIn ? 'On the road' : s.attendance.length ? 'Day ended' : 'Not started';
     const times = [...s.meetings.map((m) => m.checkInAt), ...s.locationPings.map((p) => p.recordedAt)];
     const last = times.length ? new Date(Math.max(...times.map((t) => t.getTime()))) : null;
     return {
@@ -38,8 +38,10 @@ async function todayProgress(): Promise<SalesmanProgress[]> {
       lastActivityAt: last?.toISOString() ?? null,
       lastMeetingId: s.meetings[0]?.id ?? null,
     };
-  });
+  }).sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status] || a.name.localeCompare(b.name)); // working first
 }
+
+const STATUS_ORDER: Record<FieldStatus, number> = { 'In meeting': 0, 'On the road': 1, 'Day ended': 2, 'Not started': 3 };
 
 export async function adminRoutes(app: FastifyInstance) {
   app.addHook('onRequest', authenticate);
@@ -70,7 +72,7 @@ export async function adminRoutes(app: FastifyInstance) {
       followupsDue,
       followupsOverdue,
       remindersSent,
-      fieldStatus: { inMeeting: count('In meeting'), onRoad: count('On the road'), notStarted: count('Not started'), total: progress.length },
+      fieldStatus: { inMeeting: count('In meeting'), onRoad: count('On the road'), dayEnded: count('Day ended'), notStarted: count('Not started'), total: progress.length },
       outcomes: {
         interested: n('INTERESTED'),
         closed: n('CLOSED'),
@@ -95,10 +97,15 @@ export async function adminRoutes(app: FastifyInstance) {
     return toAppUser(user);
   });
 
-  app.get<{ Querystring: { salesmanId?: string; limit: number } }>('/admin/meetings', { schema: adminMeetingsQuery }, async (req) => {
-    const { limit } = req.query;
+  app.get<{ Querystring: { salesmanId?: string; limit: number; outcome?: MeetingOutcome; range?: 'today' } }>('/admin/meetings', { schema: adminMeetingsQuery }, async (req) => {
+    const { limit, salesmanId, outcome, range } = req.query;
+    const today = range === 'today' ? istToday() : null;
     const rows = await prisma.meeting.findMany({
-      where: req.query.salesmanId ? { salesmanId: req.query.salesmanId } : {},
+      where: {
+        ...(salesmanId ? { salesmanId } : {}),
+        ...(outcome ? { outcome: OUTCOME_TO_DB[outcome] } : {}),
+        ...(today ? { checkInAt: { gte: today.start, lt: today.end } } : {}),
+      },
       include: meetingInclude,
       orderBy: { checkInAt: 'desc' },
       take: limit,

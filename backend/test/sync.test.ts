@@ -26,6 +26,11 @@ beforeEach(() => {
         clients.push(c);
         return c;
       },
+      updateMany: async ({ where, data }: any) => {
+        const hit = clients.filter((c) => c.id === where.id && c.salesmanId === where.salesmanId && c.address == null);
+        hit.forEach((c) => Object.assign(c, data));
+        return { count: hit.length };
+      },
     },
     meeting: {
       findUnique: async ({ where }: any) => {
@@ -102,6 +107,16 @@ describe('POST /me/sync', () => {
     assert.deepEqual(doneFor, []);
     await sync([visit('b')]);
     assert.deepEqual(doneFor, ['cli_0']);
+  });
+
+  it('typed shop address: saved on a new client, fills an empty one, never overwrites', async () => {
+    await sync([visit('a', { clientAddress: ' Shop 12, Main Bazar ' })]);
+    assert.equal(clients[0].address, 'Shop 12, Main Bazar');
+    await sync([visit('b', { clientAddress: 'Somewhere else' })]); // same shop again
+    assert.equal(clients[0].address, 'Shop 12, Main Bazar');
+    clients[0].address = null;
+    await sync([visit('c', { clientAddress: 'Shop 14, Main Bazar' })]);
+    assert.equal(clients[0].address, 'Shop 14, Main Bazar');
   });
 
   it('check-in address from the phone is saved (trimmed)', async () => {

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, Modal } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { X, LogOut } from 'lucide-react-native';
 import { useTheme, fonts } from '../../../src/theme';
@@ -11,6 +12,7 @@ import { formatDay, formatINRShort } from '../../../src/utils/format';
 
 export default function AdminHomeScreen() {
   const { theme } = useTheme();
+  const router = useRouter();
   const { user, logout } = useAppStore();
   const [showAddModal, setShowAddModal] = useState(false);
   const [newSalesmanName, setNewSalesmanName] = useState('');
@@ -38,6 +40,7 @@ export default function AdminHomeScreen() {
   } = useQuery<AdminOverview>({
     queryKey: ['admin-overview'],
     queryFn: () => crmService.getAdminOverview(),
+    refetchInterval: 60_000, // live numbers: refresh every minute
   });
 
   if (isLoading) {
@@ -158,58 +161,37 @@ export default function AdminHomeScreen() {
           </View>
         </View>
 
-        {/* Outcome pills */}
+        {/* Outcome pills: tap to see today's visits with that outcome */}
         <View style={styles.outcomesRow}>
-          <View
-            style={[
-              styles.outcomePill,
-              {
-                backgroundColor: theme.colors.surface2,
-                borderColor: theme.colors.border,
-              },
-            ]}
-          >
-            <Text style={[styles.outcomeLabel, { color: theme.colors.text }]}>
-              Interested{' '}
-              <Text style={{ color: theme.colors.accent, fontFamily: fonts.semibold }}>
-                {overview.outcomes.interested}
+          {(
+            [
+              ['Interested', overview.outcomes.interested],
+              ['Closed', overview.outcomes.closed],
+              ['Not interested', overview.outcomes.notInterested],
+            ] as const
+          ).map(([label, n]) => (
+            <Pressable
+              key={label}
+              onPress={() =>
+                router.push({ pathname: '/admin/outcome', params: { outcome: label } })
+              }
+              accessibilityRole="button"
+              accessibilityLabel={`${label} ${n}. Show visits`}
+              style={({ pressed }) => [
+                styles.outcomePill,
+                {
+                  backgroundColor: theme.colors.surface2,
+                  borderColor: theme.colors.border,
+                  opacity: pressed ? 0.7 : 1,
+                },
+              ]}
+            >
+              <Text style={[styles.outcomeLabel, { color: theme.colors.text }]}>
+                {label}{' '}
+                <Text style={{ color: theme.colors.accent, fontFamily: fonts.semibold }}>{n}</Text>
               </Text>
-            </Text>
-          </View>
-
-          <View
-            style={[
-              styles.outcomePill,
-              {
-                backgroundColor: theme.colors.surface2,
-                borderColor: theme.colors.border,
-              },
-            ]}
-          >
-            <Text style={[styles.outcomeLabel, { color: theme.colors.text }]}>
-              Closed{' '}
-              <Text style={{ color: theme.colors.accent, fontFamily: fonts.semibold }}>
-                {overview.outcomes.closed}
-              </Text>
-            </Text>
-          </View>
-
-          <View
-            style={[
-              styles.outcomePill,
-              {
-                backgroundColor: theme.colors.surface2,
-                borderColor: theme.colors.border,
-              },
-            ]}
-          >
-            <Text style={[styles.outcomeLabel, { color: theme.colors.text }]}>
-              Not interested{' '}
-              <Text style={{ color: theme.colors.accent, fontFamily: fonts.semibold }}>
-                {overview.outcomes.notInterested}
-              </Text>
-            </Text>
-          </View>
+            </Pressable>
+          ))}
         </View>
       </View>
 

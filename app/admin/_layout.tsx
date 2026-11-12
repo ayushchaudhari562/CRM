@@ -16,6 +16,7 @@ export default function AdminRootLayout() {
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="report/[id]" />
       <Stack.Screen name="bento" />
+      <Stack.Screen name="outcome" />
     </Stack>
   );
 }

@@ -3,7 +3,7 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
-import { ChevronLeft, Camera, MapPin, Mic, Paperclip } from 'lucide-react-native';
+import { ChevronLeft, Camera, MapPin, Mic, Paperclip, Store } from 'lucide-react-native';
 import { useTheme, fonts } from '../../../src/theme';
 import {
   Card,
@@ -121,15 +121,17 @@ export default function AdminMeetingReportScreen() {
         <Card style={styles.gap8}>
           <Text style={[styles.cardTitle, text]}>Visit proof</Text>
           <ProofRow
+            icon={<Store size={16} color={theme.colors.muted} />}
+            text={`Shop address: ${m.clientAddress ?? 'not written'}`}
+          />
+          <ProofRow
             icon={<MapPin size={16} color={theme.colors.muted} />}
             text={
               m.location
                 ? [
-                    m.location.address,
+                    `Nearby (GPS): ${m.location.address ?? 'address not found'}`,
                     `GPS ${m.location.latitude.toFixed(5)}, ${m.location.longitude.toFixed(5)}`,
-                  ]
-                    .filter(Boolean)
-                    .join('\n')
+                  ].join('\n')
                 : 'GPS not captured (permission denied)'
             }
           />
