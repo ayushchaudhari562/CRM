@@ -45,19 +45,19 @@ function authSecret() {
 
 /** Who delivers WhatsApp messages. "mock" (default) only logs, so development never sends real messages. */
 function messagingConfig() {
-  const provider = (process.env.MESSAGING_PROVIDER?.trim() || 'mock') as 'mock' | 'twilio';
+  const provider = (process.env.MESSAGING_PROVIDER?.trim() || 'mock') as 'mock' | 'meta';
   if (provider === 'mock') return { provider } as const;
-  if (provider !== 'twilio') throw new Error('MESSAGING_PROVIDER must be "mock" or "twilio"');
+  if (provider !== 'meta') throw new Error('MESSAGING_PROVIDER must be "mock" or "meta"');
   const need = (name: string) => {
-    const v = process.env[name]?.trim();
-    if (!v) throw new Error(`${name} is required when MESSAGING_PROVIDER=twilio`);
+    const v = process.env[name]?.trim().replace(/^"|"$/g, '');
+    if (!v) throw new Error(`${name} is required when MESSAGING_PROVIDER=meta`);
     return v;
   };
   return {
     provider,
-    accountSid: need('TWILIO_ACCOUNT_SID'),
-    authToken: need('TWILIO_AUTH_TOKEN'),
-    from: need('TWILIO_WHATSAPP_FROM'), // the WhatsApp sender, e.g. +14155238886
-    templates: { otp: need('TWILIO_OTP_CONTENT_SID'), reminder: need('TWILIO_REMINDER_CONTENT_SID') }, // approved, HX...
+    token: need('WHATSAPP_TOKEN'), // permanent System User token
+    phoneNumberId: need('WHATSAPP_PHONE_NUMBER_ID'), // the sender (Meta's ID, not the phone number)
+    templates: { otp: need('WHATSAPP_OTP_TEMPLATE'), reminder: need('WHATSAPP_REMINDER_TEMPLATE') },
+    language: process.env.WHATSAPP_TEMPLATE_LANG?.trim() || 'en',
   } as const;
 }

@@ -16,7 +16,7 @@ if (remindersEnabled()) {
   const run = () => sendDueReminders().catch((e: Error) => console.error(`Reminder job: ${e.message}`));
   setInterval(run, 5 * 60_000).unref();
   setTimeout(run, 30_000).unref();
-} else console.warn('WhatsApp reminders are OFF (MESSAGING_PROVIDER=mock).');
+} else console.warn('WhatsApp reminders are OFF (MESSAGING_PROVIDER=mock; set "meta" to send).');
 if (!env.authSecret) console.warn('OTP login is OFF (set AUTH_SECRET to turn it on).');
 
 process.on('SIGINT', close);

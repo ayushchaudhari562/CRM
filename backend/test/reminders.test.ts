@@ -1,4 +1,4 @@
-// WhatsApp reminders: salesman, morning of the follow-up, once only, retry with backoff, crash recovery.
+// WhatsApp reminders: salesman, 8 am on the follow-up day, once only, retry with backoff, crash recovery.
 import { fakeDb } from './helpers';
 import { beforeEach, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
@@ -31,7 +31,7 @@ beforeEach(() => {
     reminderFailedAt: null,
     reminderError: null,
     client: { name: 'Om Super Market' },
-    salesman: { phone: '+919000000100' },
+    salesman: { phone: '+919000000100', name: 'Rahul Sharma' },
   };
   fakeDb({
     followUp: {
@@ -58,13 +58,13 @@ const fail = (retryable: boolean, retryAfterSec?: number) => async () => {
 };
 
 describe('sendDueReminders', () => {
-  it('before 9 am IST: nothing', async () => {
-    assert.equal(await sendDueReminders(ist('08:59'), ok), 0);
+  it('before 8 am IST: nothing', async () => {
+    assert.equal(await sendDueReminders(ist('07:59'), ok), 0);
   });
 
-  it('after 9 am: reminder template to the salesman; filter = today, pending, reminder on, opted in, active', async () => {
+  it('after 8 am: reminder template to the salesman; filter = today, pending, reminder on, opted in, active', async () => {
     assert.equal(await sendDueReminders(ist('09:05'), ok), 1);
-    assert.deepEqual(sent[0], { to: '+919000000100', template: 'reminder', params: ['Om Super Market', '11:00 am'] });
+    assert.deepEqual(sent[0], { to: '+919000000100', template: 'reminder', params: ['Rahul Sharma', 'Om Super Market', '11:00 am'] });
     assert.equal(where.status, 'PENDING');
     assert.deepEqual(where.meeting, { whatsappReminder: true });
     assert.deepEqual(where.salesman, { isActive: true, whatsappOptOut: false });

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { AppUser, Meeting } from '../types';
-import { clearSession } from '../services/session';
+import { clearSession, getRefreshToken } from '../services/session';
+import { crmService } from '../services';
 import { queryClient } from '../services/queryClient';
 
 /** Captured on the check-in screen, sent with the meeting. */
@@ -40,6 +41,9 @@ export const useAppStore = create<AppState>((set) => ({
   setUser: (user) => set({ user }),
   setAuthReady: () => set({ authReady: true }),
   logout: async () => {
+    // End the session on the server too (best effort: offline still logs out on this phone).
+    const refreshToken = await getRefreshToken();
+    if (refreshToken) await crmService.logout(refreshToken).catch(() => {});
     await clearSession();
     queryClient.clear(); // never show the previous user's cached data
     set({ user: null, checkIn: null, lastSavedMeeting: null });

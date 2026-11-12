@@ -1,13 +1,13 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Platform, KeyboardAvoidingView, ScrollView } from 'react-native';
 import { MapPin, Check } from 'lucide-react-native';
 import { useTheme, fonts } from '../src/theme';
 import { Button, Field, SegmentedControl } from '../src/components';
 import { useAppStore } from '../src/store';
 import { APP_NAME } from '../src/config';
-import { supabase, toE164 } from '../src/services/supabase';
+import { toE164 } from '../src/services/supabase';
 import { crmService, ApiError } from '../src/services';
-import { DEV_LOGIN, clearSession, saveDevToken } from '../src/services/session';
+import { clearSession, saveSession } from '../src/services/session';
 import type { Role } from '../src/types';
 
 const ROLE_OPTIONS: { value: Role; label: string }[] = [
@@ -23,51 +23,62 @@ export default function LoginScreen() {
   // The tab is only what the user INTENDS. The real role comes from our database after OTP.
   const [loginAs, setLoginAs] = useState<Role>('salesman');
   const [phoneInput, setPhoneInput] = useState('');
-  const [phone, setPhone] = useState<string | null>(null); // E.164, set once the OTP is sent
+  const [phone, setPhone] = useState<string | null>(null); // E.164, set once the code is sent
   const [otp, setOtp] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [installed, setInstalled] = useState(false);
+  const [resendIn, setResendIn] = useState(0); // seconds until "Resend code" is allowed
 
-  const handleSendOtp = async () => {
-    const e164 = toE164(phoneInput);
-    if (!e164) return setError('Enter a valid 10-digit mobile number');
-    setError('');
-    if (DEV_LOGIN) return setPhone(e164); // TEMPORARY: our API checks the fixed OTP on Verify
+  useEffect(() => {
+    if (resendIn <= 0) return;
+    const t = setTimeout(() => setResendIn((s) => s - 1), 1000);
+    return () => clearTimeout(t);
+  }, [resendIn]);
+
+  const message = (e: unknown) =>
+    e instanceof ApiError ? e.message : 'Could not reach the server. Please try again.';
+
+  // Our server makes the code and sends it on WhatsApp. Same answer for any number (privacy).
+  const sendCode = async (e164: string) => {
     setBusy(true);
-    const { error: err } = await supabase.auth.signInWithOtp({ phone: e164 });
-    setBusy(false);
-    if (err) return setError(err.message || 'Could not send OTP. Please try again.');
-    setPhone(e164);
+    setError('');
+    try {
+      const r = await crmService.requestOtp(e164);
+      setPhone(e164);
+      setOtp('');
+      setResendIn(r.resendInSec);
+    } catch (e) {
+      setError(message(e));
+    } finally {
+      setBusy(false);
+    }
   };
 
-  const fail = async (message: string) => {
-    await clearSession();
-    setBusy(false);
-    setError(message);
+  const handleSendOtp = () => {
+    const e164 = toE164(phoneInput);
+    if (!e164) return setError('Enter a valid 10-digit mobile number');
+    void sendCode(e164);
   };
 
   const handleVerifyOtp = async () => {
     if (!phone) return;
-    if (!/^\d{6}$/.test(otp)) return setError('Enter the 6-digit OTP');
+    if (!/^\d{6}$/.test(otp)) return setError('Enter the 6-digit code');
     setBusy(true);
     setError('');
     try {
-      let me;
-      if (DEV_LOGIN) {
-        const res = await crmService.devLogin(phone, otp); // throws on wrong OTP / unknown number
-        await saveDevToken(res.token);
-        me = res.user;
-      } else {
-        const { error: err } = await supabase.auth.verifyOtp({ phone, token: otp, type: 'sms' });
-        if (err) return fail('Wrong or expired OTP. Please try again.');
-        me = await crmService.getMe(); // role from our DB
+      const { user, ...tokens } = await crmService.verifyOtp(phone, otp);
+      if (user.role !== loginAs) {
+        await crmService.logout(tokens.refreshToken).catch(() => {});
+        setBusy(false);
+        return setError(`This number is not registered as ${ROLE_LABEL[loginAs]}.`);
       }
-      if (me.role !== loginAs)
-        return fail(`This number is not registered as ${ROLE_LABEL[loginAs]}.`);
-      setUser(me); // route guard then opens the right home
+      await saveSession(tokens, user); // stays logged in until Sign Out
+      setUser(user); // route guard then opens the right home
     } catch (e) {
-      await fail(e instanceof ApiError ? e.message : 'Could not sign in. Please try again.');
+      await clearSession();
+      setBusy(false);
+      setError(message(e));
     }
   };
 
@@ -120,7 +131,7 @@ export default function LoginScreen() {
               />
 
               <Button
-                title="Send OTP"
+                title="Send code on WhatsApp"
                 onPress={handleSendOtp}
                 loading={busy}
                 variant="primary"
@@ -130,7 +141,7 @@ export default function LoginScreen() {
           ) : (
             <View style={styles.form}>
               <Field
-                label={`Enter the 6-digit OTP sent to ${phone}`}
+                label={`Enter the 6-digit code sent on WhatsApp to ${phone}`}
                 value={otp}
                 onChangeText={(val) => {
                   setOtp(val);
@@ -156,6 +167,14 @@ export default function LoginScreen() {
               />
 
               <Button
+                title={resendIn > 0 ? `Resend code in ${resendIn}s` : 'Resend code'}
+                onPress={() => void sendCode(phone)}
+                disabled={busy || resendIn > 0}
+                variant="outline"
+                size="compact"
+              />
+
+              <Button
                 title="Change phone number"
                 onPress={changeNumber}
                 disabled={busy}
@@ -164,12 +183,6 @@ export default function LoginScreen() {
               />
             </View>
           )}
-
-          {DEV_LOGIN ? (
-            <Text style={[styles.hint, { color: theme.colors.warning }]}>
-              Test login mode (fixed OTP)
-            </Text>
-          ) : null}
 
           {/* Biometrics hint */}
           <Text style={[styles.hint, { color: theme.colors.muted }]}>
