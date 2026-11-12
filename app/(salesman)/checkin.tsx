@@ -61,7 +61,7 @@ export default function CheckinScreen() {
       : gps.status === 'denied'
         ? 'Location permission denied'
         : 'Could not get location (GPS off?)';
-  const gpsOk = !!fix && !fix.approx;
+  const gpsOk = !!fix; // exact or nearest: both are saved with their accuracy
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.bg }]}>

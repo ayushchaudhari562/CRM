@@ -40,10 +40,7 @@ export default function SalesmanMapTab() {
 
       <Card surface="surface" style={styles.card}>
         <View style={styles.row}>
-          <Crosshair
-            size={16}
-            color={fix && !fix.approx ? theme.colors.accent : theme.colors.warning}
-          />
+          <Crosshair size={16} color={fix ? theme.colors.accent : theme.colors.warning} />
           <Text style={[styles.status, { color: theme.colors.text }]}>{status}</Text>
         </View>
 
