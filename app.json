@@ -2,7 +2,7 @@
   "expo": {
     "name": "JTA",
     "slug": "sales-crm",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#0B0C0D",
@@ -12,7 +12,7 @@
     },
     "android": {
       "package": "com.salescrm.app",
-      "versionCode": 1,
+      "versionCode": 2,
       "permissions": [
         "CAMERA",
         "ACCESS_COARSE_LOCATION",
