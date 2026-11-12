@@ -1,7 +1,8 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
-import { useTheme } from '../theme';
+import { useTheme, fonts } from '../theme';
+import { MAPS_AVAILABLE } from '../utils/maps';
 import type { SalesmanLocation } from '../types';
 
 export interface TeamMapHandle {
@@ -40,6 +41,17 @@ export const TeamMap = forwardRef<TeamMapHandle, { points: SalesmanLocation[] }>
     return () => clearTimeout(t);
   }, [points]);
 
+  // No Maps key in this build: the list below the map still shows everyone.
+  if (!MAPS_AVAILABLE) {
+    return (
+      <View style={[styles.box, styles.center, { backgroundColor: theme.colors.surface2 }]}>
+        <Text style={[styles.note, { color: theme.colors.muted }]}>
+          Map view coming soon · {points.length} salesmen below
+        </Text>
+      </View>
+    );
+  }
+
   return (
     <View style={[styles.box, { backgroundColor: theme.colors.surface2 }]}>
       <MapView
@@ -66,6 +78,14 @@ export const TeamMap = forwardRef<TeamMapHandle, { points: SalesmanLocation[] }>
 });
 
 const styles = StyleSheet.create({
+  center: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  note: {
+    fontFamily: fonts.regular,
+    fontSize: 13,
+  },
   box: {
     flex: 1,
     borderRadius: 22,
