@@ -48,7 +48,8 @@
           "locationWhenInUsePermission": "Allow Sales CRM to verify your location at check-in."
         }
       ],
-      "expo-asset"
+      "expo-asset",
+      "@react-native-community/datetimepicker"
     ],
     "extra": {
       "eas": {

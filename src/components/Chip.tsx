@@ -10,6 +10,7 @@ export interface ChipProps {
   textStyle?: TextStyle;
   accessibilityLabel?: string;
   count?: number | string;
+  icon?: React.ReactNode; // shown before the label
 }
 
 // Pill used for filters and multi-select (product chips, Today/Week/All).
@@ -21,6 +22,7 @@ export const Chip: React.FC<ChipProps> = ({
   textStyle,
   accessibilityLabel,
   count,
+  icon,
 }) => {
   const { theme } = useTheme();
   const textColor = selected ? theme.colors.onAccent : theme.colors.text;
@@ -40,9 +42,11 @@ export const Chip: React.FC<ChipProps> = ({
           borderColor: selected ? theme.colors.accent : theme.colors.border,
           opacity: pressed ? 0.8 : 1,
         },
+        icon ? styles.withIcon : null,
         style,
       ]}
     >
+      {icon}
       <Text style={[styles.text, { color: textColor }, textStyle]}>
         {label}
         {count !== undefined ? (
@@ -56,6 +60,11 @@ export const Chip: React.FC<ChipProps> = ({
 };
 
 const styles = StyleSheet.create({
+  withIcon: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   chip: {
     minHeight: minTouch,
     paddingHorizontal: 14,
