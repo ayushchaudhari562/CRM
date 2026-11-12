@@ -9,12 +9,14 @@ after(() => app.close());
 const M = 60_000;
 let clients: any[];
 let meetings: any[];
+let doneFor: string[];
 const eqI = (a: string, b: { equals: string }) => a.toLowerCase() === b.equals.toLowerCase();
 const row = (m: any) => ({ ...m, client: clients.find((c) => c.id === m.clientId), salesman: { name: 'Rahul' }, products: [], attachments: [], createdAt: new Date() });
 
 beforeEach(() => {
   clients = [];
   meetings = [];
+  doneFor = [];
   fakeDb({
     client: {
       findFirst: async ({ where }: any) =>
@@ -37,7 +39,7 @@ beforeEach(() => {
         return row(m);
       },
     },
-    followUp: { create: async () => ({}) },
+    followUp: { create: async () => ({}), updateMany: async ({ where }: any) => (doneFor.push(where.clientId), { count: 1 }) },
   });
 });
 
@@ -93,6 +95,13 @@ describe('POST /me/sync', () => {
   it('two offline visits to one new shop -> one client', async () => {
     await sync([visit('a'), visit('b', { clientName: 'GUPTA store', businessType: 'kirana' })]);
     assert.equal(clients.length, 1);
+  });
+
+  it('a repeat visit completes the pending follow-ups of that client; a new client has none', async () => {
+    await sync([visit('a')]);
+    assert.deepEqual(doneFor, []);
+    await sync([visit('b')]);
+    assert.deepEqual(doneFor, ['cli_0']);
   });
 
   it('phone clock ahead -> times clamped to now', async () => {

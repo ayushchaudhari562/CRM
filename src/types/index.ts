@@ -109,6 +109,12 @@ export interface SetTargetInput {
   dealValueTarget: number | null;
 }
 
+/** Body of PUT /me/target: the salesman's own target for today. */
+export interface SetMyTargetInput {
+  visitsTarget: number; // 0 = no visits target
+  dealValueTarget: number | null;
+}
+
 export interface SalesmanHome {
   visitsDone: number; // today
   visitsTarget: number; // today (0 = no target set)

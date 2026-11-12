@@ -8,6 +8,13 @@
       "distribution": "internal",
       "android": {
         "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://crm-501r.onrender.com",
+        "EXPO_PUBLIC_DEV_LOGIN": "1",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://wsoiduywaenqapxdzrkr.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_KEY": "sb_publishable_NZgWFfXScNUSCzmynQSU_g_Zux-oOYD",
+        "ORG_GRADLE_PROJECT_reactNativeArchitectures": "arm64-v8a"
       }
     },
     "production": {

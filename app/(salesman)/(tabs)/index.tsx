@@ -1,12 +1,20 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { MapPin, CheckCircle2, ChevronRight } from 'lucide-react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTheme, fonts } from '../../../src/theme';
-import { Button, TickRing, LoadingView, ErrorView } from '../../../src/components';
+import {
+  Button,
+  TickRing,
+  LoadingView,
+  ErrorView,
+  SegmentedControl,
+} from '../../../src/components';
 import { crmService } from '../../../src/services';
-import { formatDay, formatTime, greeting, initialOf } from '../../../src/utils/format';
+import { formatDay, formatINR, formatTime, greeting, initialOf } from '../../../src/utils/format';
+
+type Tab = 'today' | 'followups';
 
 export default function SalesmanHomeScreen() {
   const { theme } = useTheme();
@@ -19,6 +27,12 @@ export default function SalesmanHomeScreen() {
     error,
     refetch,
   } = useQuery({ queryKey: ['home'], queryFn: crmService.getHome });
+  const [tab, setTab] = useState<Tab>('today');
+  // Same cache as the Visits tab "Today" filter; refreshed after a meeting is saved.
+  const { data: todayVisits = [], isLoading: visitsLoading } = useQuery({
+    queryKey: ['meetings', 'today'],
+    queryFn: () => crmService.getMeetings('today'),
+  });
 
   const punch = useMutation({
     mutationFn: crmService.togglePunch,
@@ -85,7 +99,7 @@ export default function SalesmanHomeScreen() {
             }
             label={home.visitsTarget ? 'Visits done' : 'Visits today'}
             activeCount={home.visitsDone}
-            totalCount={home.visitsTarget}
+            totalCount={home.visitsTarget || 10} // no target yet: ring fills toward 10
             size={220}
           />
         </View>
@@ -111,15 +125,83 @@ export default function SalesmanHomeScreen() {
           icon={<MapPin size={22} color={theme.colors.onAccent} />}
         />
 
-        {/* Follow-ups Due Section */}
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-            Follow-ups due today
-          </Text>
-        </View>
+        <SegmentedControl<Tab>
+          options={[
+            { value: 'today', label: `Today (${home.visitsDone})` },
+            { value: 'followups', label: `Follow-ups (${home.followUpsToday.length})` },
+          ]}
+          value={tab}
+          onChange={setTab}
+        />
 
         <View style={styles.followupsList}>
-          {home.followUpsToday.length > 0 ? (
+          {tab === 'today' ? (
+            visitsLoading ? (
+              <Text style={[styles.empty, { color: theme.colors.muted }]}>Loading...</Text>
+            ) : todayVisits.length > 0 ? (
+              todayVisits.map((m) => (
+                <Pressable
+                  key={m.id}
+                  onPress={() => router.push(`/(salesman)/client/${m.clientId}`)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${m.clientName}, ${m.outcome} at ${formatTime(m.checkInAt)}. Open client details`}
+                  style={({ pressed }) => [styles.followupRow, { opacity: pressed ? 0.7 : 1 }]}
+                >
+                  <View style={[styles.avatarSquare, { backgroundColor: theme.colors.text }]}>
+                    <Text style={[styles.avatarText, { color: theme.colors.bg }]}>
+                      {initialOf(m.clientName)}
+                    </Text>
+                  </View>
+                  <View style={styles.clientDetails}>
+                    <Text
+                      style={[styles.clientName, { color: theme.colors.text }]}
+                      numberOfLines={1}
+                    >
+                      {m.clientName}
+                    </Text>
+                    <Text
+                      style={[styles.clientSub, { color: theme.colors.muted }]}
+                      numberOfLines={1}
+                    >
+                      {m.businessType} · {formatTime(m.checkInAt)}
+                      {m.dealValue > 0 ? ` · ${formatINR(m.dealValue)}` : ''}
+                    </Text>
+                  </View>
+                  <View
+                    style={[
+                      styles.statusBadge,
+                      {
+                        backgroundColor:
+                          m.outcome === 'Closed'
+                            ? theme.colors.accentSoftBg
+                            : theme.colors.surface2,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.statusText,
+                        {
+                          color:
+                            m.outcome === 'Closed'
+                              ? theme.colors.accent
+                              : m.outcome === 'Interested'
+                                ? theme.colors.text
+                                : theme.colors.muted,
+                        },
+                      ]}
+                    >
+                      {m.outcome}
+                    </Text>
+                  </View>
+                </Pressable>
+              ))
+            ) : (
+              <Text style={[styles.empty, { color: theme.colors.muted }]}>
+                No visits yet today. Tap Start new meeting.
+              </Text>
+            )
+          ) : home.followUpsToday.length > 0 ? (
             home.followUpsToday.map((item) => (
               <Pressable
                 key={item.id}
@@ -152,7 +234,7 @@ export default function SalesmanHomeScreen() {
               </Pressable>
             ))
           ) : (
-            <Text style={{ color: theme.colors.muted, textAlign: 'center', padding: 12 }}>
+            <Text style={[styles.empty, { color: theme.colors.muted }]}>
               No follow-ups due today
             </Text>
           )}
@@ -219,12 +301,10 @@ const styles = StyleSheet.create({
     gap: 16,
     marginTop: 12,
   },
-  sectionHeader: {
-    marginTop: 4,
-  },
-  sectionTitle: {
-    fontFamily: fonts.semibold,
-    fontSize: 18,
+  empty: {
+    fontFamily: fonts.regular,
+    textAlign: 'center',
+    padding: 12,
   },
   followupsList: {
     gap: 14,

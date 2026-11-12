@@ -159,6 +159,7 @@ export default function MeetingDetailsScreen() {
       setCheckIn(null);
       qc.invalidateQueries({ queryKey: ['home'] });
       qc.invalidateQueries({ queryKey: ['meetings'] });
+      qc.invalidateQueries({ queryKey: ['my-targets'] });
       router.replace('/(salesman)/meeting-saved');
     } catch (e) {
       setSubmitError(e instanceof Error ? e.message : 'Could not save. Please try again.');

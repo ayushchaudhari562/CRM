@@ -49,6 +49,12 @@
         }
       ],
       "expo-asset"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "16cdd5d9-bc42-4246-9783-d189724603a2"
+      }
+    },
+    "owner": "ayush_chaudhari"
   }
 }

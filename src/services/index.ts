@@ -15,6 +15,7 @@ import type {
   FollowUp,
   FollowUpScope,
   SalesmanTargetProgress,
+  SetMyTargetInput,
   SetTargetInput,
   TargetProgress,
   UpdateFollowUpInput,
@@ -137,6 +138,8 @@ export const crmService = {
   updateFollowUp: (id: string, input: UpdateFollowUpInput) =>
     request<FollowUp>(`/me/followups/${encodeURIComponent(id)}`, { method: 'PATCH', body: input }),
   getMyTargets: (days = 7) => request<TargetProgress[]>(`/me/targets?days=${days}`),
+  setMyTarget: (input: SetMyTargetInput) =>
+    request<TargetProgress>('/me/target', { method: 'PUT', body: input }),
 
   // Admin
   getAdminOverview: () => request<AdminOverview>('/admin/overview'),
