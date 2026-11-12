@@ -32,4 +32,14 @@ export const env = {
   storageBucket: process.env.STORAGE_BUCKET?.trim() || 'visit-files',
   devLoginOtp,
   devJwtSecret,
+  // WhatsApp reminders (Twilio). All four set = reminders on; any missing = off.
+  twilio: twilioConfig(),
 };
+
+function twilioConfig() {
+  const accountSid = process.env.TWILIO_ACCOUNT_SID?.trim();
+  const authToken = process.env.TWILIO_AUTH_TOKEN?.trim();
+  const from = process.env.TWILIO_WHATSAPP_FROM?.trim(); // e.g. +14155238886 (the WhatsApp sender)
+  const reminderContentSid = process.env.TWILIO_REMINDER_CONTENT_SID?.trim(); // approved template, HX...
+  return accountSid && authToken && from && reminderContentSid ? { accountSid, authToken, from, reminderContentSid } : null;
+}

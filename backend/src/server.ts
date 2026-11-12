@@ -1,6 +1,7 @@
 import { env } from './env';
 import { prisma } from './db';
 import { buildApp } from './app';
+import { sendDueReminders } from './reminders';
 
 const app = buildApp();
 if (env.devLoginOtp) console.warn('WARNING: DEV LOGIN (fixed OTP) is ON. Remove DEV_LOGIN_OTP from .env before going live.');
@@ -10,6 +11,13 @@ const close = async () => {
   await prisma.$disconnect();
   process.exit(0);
 };
+// WhatsApp reminders: every 5 minutes (does nothing until the Twilio keys are set).
+if (env.twilio) {
+  const run = () => sendDueReminders().catch((e: Error) => console.error(`Reminder job: ${e.message}`));
+  setInterval(run, 5 * 60_000).unref();
+  setTimeout(run, 30_000).unref();
+} else console.warn('WhatsApp reminders are OFF (set TWILIO_* in .env to turn them on).');
+
 process.on('SIGINT', close);
 process.on('SIGTERM', close);
 
