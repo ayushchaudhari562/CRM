@@ -129,7 +129,7 @@ export interface ClientDetail extends Client {
   followUps: FollowUp[];
 }
 
-export type FieldStatus = 'In meeting' | 'On the road' | 'Not started';
+export type FieldStatus = 'In meeting' | 'On the road' | 'Day ended' | 'Not started';
 
 export interface SalesmanProgress {
   id: string;
@@ -151,7 +151,7 @@ export interface AdminOverview {
   followupsDue: number; // pending, due today
   followupsOverdue: number; // pending, due before now
   remindersSent: number; // WhatsApp reminders sent today
-  fieldStatus: { inMeeting: number; onRoad: number; notStarted: number; total: number };
+  fieldStatus: { inMeeting: number; onRoad: number; dayEnded: number; notStarted: number; total: number };
   outcomes: { interested: number; closed: number; notInterested: number; total: number };
 }
 
@@ -204,6 +204,7 @@ export interface SalesmanLocation extends LatLng {
   salesmanName: string;
   accuracy: number | null;
   recordedAt: string;
+  onDuty: boolean; // punched in right now
 }
 
 /** Admin: one salesman's day on the map. */

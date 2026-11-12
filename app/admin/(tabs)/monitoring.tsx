@@ -45,6 +45,7 @@ export default function AdminLiveMonitoringScreen() {
   const rows = [
     { label: 'In meeting' as const, color: theme.colors.accent },
     { label: 'On the road' as const, color: theme.colors.text },
+    { label: 'Day ended' as const, color: theme.colors.muted },
     { label: 'Not started' as const, color: theme.colors.statusIdle },
   ].map((r) => ({ ...r, n: count(r.label) }));
 

@@ -76,7 +76,12 @@ export const createSalesmanBody = {
 export const adminMeetingsQuery = {
   querystring: {
     type: 'object',
-    properties: { salesmanId: id, limit: { type: 'integer', minimum: 1, maximum: 200, default: 50 } },
+    properties: {
+      salesmanId: id,
+      limit: { type: 'integer', minimum: 1, maximum: 200, default: 50 },
+      outcome: { type: 'string', enum: ['Interested', 'Closed', 'Not interested'] },
+      range: { type: 'string', enum: ['today'] },
+    },
   },
 } as const;
 
