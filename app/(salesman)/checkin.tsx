@@ -1,32 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ChevronLeft, Check, Camera, AlertTriangle } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
-import * as Location from 'expo-location';
 import { useTheme, fonts } from '../../src/theme';
-import { Button, MapCard } from '../../src/components';
-import { useAppStore, type CheckIn } from '../../src/store';
-import { formatTime } from '../../src/utils/format';
-
-type GpsState =
-  | { status: 'checking' }
-  | { status: 'captured'; location: NonNullable<CheckIn['location']> }
-  | { status: 'denied' }
-  | { status: 'error' };
-
-/** Ask permission and read the GPS position. Never throws. */
-async function readLocation(): Promise<GpsState> {
-  try {
-    const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== 'granted') return { status: 'denied' };
-    const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-    const { latitude, longitude, accuracy } = pos.coords;
-    return { status: 'captured', location: { latitude, longitude, accuracy: accuracy ?? null } };
-  } catch {
-    return { status: 'error' }; // GPS off / no signal
-  }
-}
+import { Button, LiveMap } from '../../src/components';
+import { useAppStore } from '../../src/store';
+import { formatLatLng, formatTime } from '../../src/utils/format';
+import { useAddress, useLiveLocation } from '../../src/utils/location';
 
 export default function CheckinScreen() {
   const { theme } = useTheme();
@@ -35,22 +16,14 @@ export default function CheckinScreen() {
 
   // Arrival time = when the salesman opens this screen.
   const [checkInAt] = useState(() => new Date().toISOString());
-  const [gps, setGps] = useState<GpsState>({ status: 'checking' });
+  const [retry, setRetry] = useState(0);
+  const gps = useLiveLocation(retry); // live: exact fix, or nearest until GPS locks
+  const fix = gps.fix;
+  const address = useAddress(fix);
   const [selfieUri, setSelfieUri] = useState<string | null>(null);
   const [cameraError, setCameraError] = useState('');
 
-  useEffect(() => {
-    let active = true; // ignore the answer if the screen was closed meanwhile
-    readLocation().then((state) => active && setGps(state));
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  const retryLocation = () => {
-    setGps({ status: 'checking' });
-    readLocation().then(setGps);
-  };
+  const retryLocation = () => setRetry((n) => n + 1);
 
   // Selfie must come from the camera (it is proof of the visit), never from the gallery.
   const handleOpenCamera = async () => {
@@ -72,19 +45,23 @@ export default function CheckinScreen() {
   };
 
   const handleContinue = () => {
-    setCheckIn({ checkInAt, location: gps.status === 'captured' ? gps.location : null, selfieUri });
+    const location = fix
+      ? { latitude: fix.latitude, longitude: fix.longitude, accuracy: fix.accuracy }
+      : null;
+    setCheckIn({ checkInAt, location, selfieUri });
     router.push('/(salesman)/meeting-details');
   };
 
-  const gpsText =
-    gps.status === 'captured'
-      ? `Location captured (±${Math.round(gps.location.accuracy ?? 0)} m)`
-      : gps.status === 'checking'
-        ? 'Getting your location...'
-        : gps.status === 'denied'
-          ? 'Location permission denied'
-          : 'Could not get location (GPS off?)';
-  const gpsOk = gps.status === 'captured';
+  const gpsText = fix
+    ? fix.approx
+      ? `Nearest location (±${Math.round(fix.accuracy ?? 0)} m)`
+      : `Exact location (±${Math.round(fix.accuracy ?? 0)} m)`
+    : gps.status === 'checking'
+      ? 'Getting your location...'
+      : gps.status === 'denied'
+        ? 'Location permission denied'
+        : 'Could not get location (GPS off?)';
+  const gpsOk = !!fix && !fix.approx;
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.bg }]}>
@@ -114,11 +91,23 @@ export default function CheckinScreen() {
         </View>
 
         {/* Map Card */}
-        <MapCard height={190} />
+        <LiveMap
+          height={190}
+          interactive={false}
+          latitude={fix?.latitude ?? null}
+          longitude={fix?.longitude ?? null}
+          accuracy={fix?.accuracy}
+        />
 
         {/* Verification Checklist */}
         <View style={[styles.checklistCard, { backgroundColor: theme.colors.surface }]}>
           <CheckRow ok={gpsOk} text={gpsText} />
+          {fix ? (
+            <Text selectable style={[styles.coords, { color: theme.colors.muted }]}>
+              {formatLatLng(fix.latitude, fix.longitude)}
+              {address ? `\n${address}` : ''}
+            </Text>
+          ) : null}
           {gps.status === 'denied' || gps.status === 'error' ? (
             <Button
               title="Try again"
@@ -173,7 +162,7 @@ export default function CheckinScreen() {
         <Button
           title="Continue to client details"
           onPress={handleContinue}
-          disabled={gps.status === 'checking'}
+          disabled={gps.status === 'checking' && !fix}
           variant="primary"
           size="normal"
           style={styles.continueBtn}
@@ -205,6 +194,11 @@ function CheckRow({ ok, text }: { ok: boolean; text: string }) {
 }
 
 const styles = StyleSheet.create({
+  coords: {
+    fontFamily: fonts.regular,
+    fontSize: 12,
+    marginLeft: 40,
+  },
   errorText: {
     fontFamily: fonts.regular,
     fontSize: 12,

@@ -6,18 +6,16 @@ import { useAppStore } from '../../../src/store';
 import { Card, Button, Field } from '../../../src/components';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { crmService } from '../../../src/services';
-import { formatTime } from '../../../src/utils/format';
+import { formatClock, formatDuration, formatTime } from '../../../src/utils/format';
+import { usePunch, useWorkedMs } from '../../../src/utils/shift';
 
 export default function SalesmanProfileTab() {
   const { theme } = useTheme();
   const { user, logout } = useAppStore();
-  const qc = useQueryClient();
   // Punch state lives on the server (same query as the home screen).
   const { data: home } = useQuery({ queryKey: ['home'], queryFn: crmService.getHome });
-  const punch = useMutation({
-    mutationFn: crmService.togglePunch,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['home'] }),
-  });
+  const punch = usePunch();
+  const workedMs = useWorkedMs(home);
   if (!user) return null; // route guard redirects to login
   const isPunchedIn = !!home?.punchedInAt;
 
@@ -55,8 +53,10 @@ export default function SalesmanProfileTab() {
           <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Daily Attendance</Text>
           <Text style={[styles.sectionSub, { color: theme.colors.muted }]}>
             {isPunchedIn
-              ? `Active shift since ${formatTime(home!.punchedInAt!)}`
-              : 'Shift not started'}
+              ? `Active since ${formatTime(home!.punchedInAt!)} · ${formatClock(workedMs)}`
+              : home?.punchedOutAt
+                ? `Shift ended ${formatTime(home.punchedOutAt)} · Total ${formatDuration(workedMs)}`
+                : 'Shift not started'}
           </Text>
         </View>
 

@@ -40,3 +40,20 @@ export function timeAgo(d: Date | string | null): string {
 
 /** First letter of the first word, for avatar tiles. */
 export const initialOf = (name: string) => name.trim().charAt(0).toUpperCase() || '?';
+
+/** "6h 12m" / "45m" */
+export function formatDuration(ms: number): string {
+  const mins = Math.max(0, Math.floor(ms / 60_000));
+  const h = Math.floor(mins / 60);
+  return h ? `${h}h ${mins % 60}m` : `${mins}m`;
+}
+
+/** "01:23:45" running clock */
+export function formatClock(ms: number): string {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${pad(Math.floor(s / 3600))}:${pad(Math.floor((s % 3600) / 60))}:${pad(s % 60)}`;
+}
+
+/** "28.613939, 77.209021" */
+export const formatLatLng = (lat: number, lng: number) => `${lat.toFixed(6)}, ${lng.toFixed(6)}`;

@@ -18,7 +18,7 @@ export async function salesmanRoutes(app: FastifyInstance) {
   app.get('/me/home', async (req): Promise<SalesmanHome> => {
     const me = req.user!;
     const { start, end, date } = istToday();
-    const [visitsDone, target, followUps, punch] = await Promise.all([
+    const [visitsDone, target, followUps, shifts] = await Promise.all([
       prisma.meeting.count({ where: { salesmanId: me.id, checkInAt: { gte: start, lt: end } } }),
       prisma.target.findUnique({ where: { salesmanId_date: { salesmanId: me.id, date } } }),
       prisma.followUp.findMany({
@@ -26,16 +26,21 @@ export async function salesmanRoutes(app: FastifyInstance) {
         include: followUpInclude,
         orderBy: { dueAt: 'asc' },
       }),
-      prisma.attendance.findFirst({
-        where: { salesmanId: me.id, punchInAt: { gte: start, lt: end }, punchOutAt: null },
-        orderBy: { punchInAt: 'desc' },
+      prisma.attendance.findMany({
+        where: { salesmanId: me.id, punchInAt: { gte: start, lt: end } },
+        select: { punchInAt: true, punchOutAt: true },
+        orderBy: { punchInAt: 'asc' },
       }),
     ]);
+    const open = shifts.find((s) => !s.punchOutAt);
+    const closed = shifts.filter((s) => s.punchOutAt);
     return {
       visitsDone,
       visitsTarget: target?.visitsTarget ?? 0,
       followUpsToday: followUps.map((f) => toFollowUp(f)),
-      punchedInAt: punch?.punchInAt.toISOString() ?? null,
+      punchedInAt: open?.punchInAt.toISOString() ?? null,
+      workedMs: closed.reduce((sum, s) => sum + (s.punchOutAt!.getTime() - s.punchInAt.getTime()), 0),
+      punchedOutAt: closed.at(-1)?.punchOutAt!.toISOString() ?? null,
     };
   });
 

@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
-import { MapPin, CheckCircle2, ChevronRight } from 'lucide-react-native';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { MapPin, ChevronRight } from 'lucide-react-native';
+import { useQuery } from '@tanstack/react-query';
 import { useTheme, fonts } from '../../../src/theme';
 import {
   Button,
@@ -12,14 +12,22 @@ import {
   SegmentedControl,
 } from '../../../src/components';
 import { crmService } from '../../../src/services';
-import { formatDay, formatINR, formatTime, greeting, initialOf } from '../../../src/utils/format';
+import {
+  formatClock,
+  formatDay,
+  formatDuration,
+  formatINR,
+  formatTime,
+  greeting,
+  initialOf,
+} from '../../../src/utils/format';
+import { usePunch, useWorkedMs } from '../../../src/utils/shift';
 
 type Tab = 'today' | 'followups';
 
 export default function SalesmanHomeScreen() {
   const { theme } = useTheme();
   const router = useRouter();
-  const qc = useQueryClient();
 
   const {
     data: home,
@@ -34,10 +42,8 @@ export default function SalesmanHomeScreen() {
     queryFn: () => crmService.getMeetings('today'),
   });
 
-  const punch = useMutation({
-    mutationFn: crmService.togglePunch,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['home'] }),
-  });
+  const punch = usePunch();
+  const workedMs = useWorkedMs(home);
 
   if (isLoading) return <LoadingView message="Loading today's plan..." />;
   if (error || !home) {
@@ -63,24 +69,23 @@ export default function SalesmanHomeScreen() {
             disabled={punch.isPending}
             accessibilityRole="button"
             accessibilityLabel={isPunchedIn ? 'Punch out' : 'Punch in'}
-            style={[
+            style={({ pressed }) => [
               styles.punchInBtn,
-              {
-                borderColor: isPunchedIn ? theme.colors.accent : theme.colors.border,
-                backgroundColor: isPunchedIn ? theme.colors.accentSoftBg : 'transparent',
-              },
+              { opacity: pressed || punch.isPending ? 0.6 : 1 },
             ]}
           >
+            <Text style={[styles.punchInText, { color: theme.colors.accent }]}>
+              {isPunchedIn ? `Punched in ${formatTime(home.punchedInAt!)}` : 'Punch in'}
+            </Text>
             {isPunchedIn ? (
-              <View style={styles.punchInActiveRow}>
-                <CheckCircle2 size={14} color={theme.colors.accent} />
-                <Text style={[styles.punchInText, { color: theme.colors.accent }]}>
-                  Punched in {formatTime(home.punchedInAt!)}
-                </Text>
-              </View>
-            ) : (
-              <Text style={[styles.punchInText, { color: theme.colors.text }]}>Punch in</Text>
-            )}
+              <Text style={[styles.shiftTime, { color: theme.colors.accent }]}>
+                {formatClock(workedMs)}
+              </Text>
+            ) : workedMs > 0 ? (
+              <Text style={[styles.shiftTime, { color: theme.colors.muted }]}>
+                Total {formatDuration(workedMs)}
+              </Text>
+            ) : null}
           </Pressable>
         </View>
 
@@ -266,17 +271,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   punchInBtn: {
-    height: 44,
-    paddingHorizontal: 16,
-    borderRadius: 22,
-    borderWidth: 1,
+    minHeight: 44,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'flex-end',
   },
-  punchInActiveRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+  shiftTime: {
+    fontFamily: fonts.medium,
+    fontSize: 12,
+    marginTop: 2,
   },
   punchInText: {
     fontFamily: fonts.medium,

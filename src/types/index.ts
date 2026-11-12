@@ -119,6 +119,8 @@ export interface SalesmanHome {
   visitsTarget: number; // today (0 = no target set)
   followUpsToday: FollowUp[]; // pending, due today
   punchedInAt: string | null; // open punch-in today
+  workedMs: number; // finished shifts today (add now - punchedInAt for the open one)
+  punchedOutAt: string | null; // last punch-out today
 }
 
 export interface ClientDetail extends Client {
