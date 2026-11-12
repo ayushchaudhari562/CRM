@@ -57,6 +57,9 @@ model User {
   employeeId String?  @unique
   role       Role     @default(SALESMAN)
   isActive   Boolean  @default(true) // deactivate instead of delete, to keep history
+  // WhatsApp reminders: on by default (work app); the salesman can opt out (app or "STOP").
+  whatsappOptOut   Boolean   @default(false)
+  whatsappOptOutAt DateTime? @db.Timestamptz(3)
   createdAt  DateTime @default(now()) @db.Timestamptz(3)
   updatedAt  DateTime @updatedAt @db.Timestamptz(3)
 
@@ -66,6 +69,7 @@ model User {
   attendance    Attendance[]
   targets       Target[]
   locationPings LocationPing[]
+  sessions      Session[]
 }
 
 // ---------- Clients ----------
@@ -164,7 +168,13 @@ model FollowUp {
   type           FollowUpType   @default(VISIT)
   dueAt          DateTime       @db.Timestamptz(3)
   status         FollowUpStatus @default(PENDING)
-  whatsappSentAt DateTime?      @db.Timestamptz(3) // set by the reminder job later
+  whatsappSentAt DateTime?      @db.Timestamptz(3) // reminder delivered to WhatsApp
+  // Reminder job bookkeeping (claim -> send -> retry with backoff -> give up).
+  reminderClaimedAt DateTime? @db.Timestamptz(3) // being sent; older than 5 min = crashed run, retried
+  reminderAttempts  Int       @default(0)
+  reminderNextAt    DateTime? @db.Timestamptz(3) // retry not before
+  reminderError     String?
+  reminderFailedAt  DateTime? @db.Timestamptz(3) // gave up (bad number, template rejected, 8 tries)
   createdAt      DateTime       @default(now()) @db.Timestamptz(3)
   updatedAt      DateTime       @updatedAt @db.Timestamptz(3)
 
@@ -219,4 +229,49 @@ model Target {
   salesman User @relation(fields: [salesmanId], references: [id], onDelete: Cascade)
 
   @@unique([salesmanId, date])
+}
+
+// ---------- Login (OTP on our server) ----------
+
+// One OTP sent to a phone. Only an HMAC of the code is stored. A newer OTP or a correct entry sets usedAt.
+// Rows are also written for unknown numbers (never sent), so limits and answers are the same for everyone.
+model OtpCode {
+  id        String    @id @default(cuid())
+  phone     String // E.164
+  codeHash  String
+  attempts  Int       @default(0) // wrong entries (max 5)
+  expiresAt DateTime  @db.Timestamptz(3)
+  usedAt    DateTime? @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @db.Timestamptz(3)
+
+  @@index([phone, createdAt])
+}
+
+// A logged-in phone. The refresh token is random; only its SHA-256 is stored, and it changes on every refresh.
+// No time limit: it ends only on logout, "log out everywhere" or when the admin deactivates the user.
+model Session {
+  id            String    @id @default(cuid())
+  userId        String
+  tokenHash     String    @unique
+  prevTokenHash String?   @unique // the token before the last refresh (accepted for 10 min if the answer was lost)
+  rotatedAt     DateTime? @db.Timestamptz(3)
+  lastUsedAt    DateTime  @default(now()) @db.Timestamptz(3)
+  revokedAt     DateTime? @db.Timestamptz(3)
+  createdAt     DateTime  @default(now()) @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([userId])
+}
+
+// Who did what: OTP sent / login / logout / deactivate / WhatsApp opt-in, opt-out. Never deleted.
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String
+  detail    Json?
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([userId, createdAt])
+  @@index([createdAt])
 }

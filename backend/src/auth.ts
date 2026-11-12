@@ -7,6 +7,7 @@ import { env } from './env';
 import type { User } from './generated/prisma/client';
 import { HttpError, normalizePhone } from './http';
 import { phoneFromDevToken } from './devLogin';
+import { sessionIdFromAccessToken, userForSession } from './sessions';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -64,6 +65,16 @@ export async function authenticate(request: FastifyRequest) {
   const header = request.headers.authorization ?? '';
   const token = header.startsWith('Bearer ') ? header.slice(7) : '';
   if (!token) throw new HttpError(401, 'no_token', 'Please log in.');
+
+  // Our own access token (OTP login): the session must still be open.
+  const sessionId = sessionIdFromAccessToken(token);
+  if (sessionId) {
+    const u = await userForSession(sessionId);
+    if (!u.isActive) throw new HttpError(403, 'inactive', 'Your account is deactivated. Contact your manager.');
+    request.user = u;
+    return;
+  }
+
   // TEMPORARY dev login token (fixed OTP) is accepted only while dev login is enabled.
   const phone = phoneFromDevToken(token) ?? (await phoneFromToken(token));
 

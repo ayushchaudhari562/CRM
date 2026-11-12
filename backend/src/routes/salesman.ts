@@ -1,19 +1,33 @@
 // Salesman API. Every query is filtered by the logged-in salesman: they only ever see their own data.
 import type { FastifyInstance } from 'fastify';
 import { prisma } from '../db';
-import { authenticate, HttpError, requireRole } from '../auth';
+import { authenticate, forgetUser, HttpError, requireRole } from '../auth';
 import { editableUntil, followUpInclude, istToday, meetingInclude, OUTCOME_TO_DB, toFollowUp, toMeeting } from '../dto';
 import { followUpQuery, salesmanTargets } from '../planning';
 import { clientSearchQuery, createMeetingBody, createUploadBody, followUpsQuery, locationPingsBody, punchBody, syncBody, idParam, meetingsQuery, setMyTargetBody, targetsQuery, updateFollowUpBody, updateMeetingBody } from '../schemas';
 import { saveMeeting } from '../meetings';
 import { createUpload, withFileUrls } from '../storage';
 import { savePings } from '../tracking';
+import { audit } from '../audit';
 import { MEETING_FIELD_GROUP, SALESMAN_EDITABLE } from '../../../src/config';
 import type { ClientDetail, CreateMeetingInput, FollowUpScope, CreateUploadInput, LocationPingsInput, PunchInput, SalesmanHome, SetMyTargetInput, SyncInput, SyncResult, UpdateFollowUpInput, UpdateMeetingInput } from '../../../src/types';
 
 export async function salesmanRoutes(app: FastifyInstance) {
   app.addHook('onRequest', authenticate);
   app.addHook('onRequest', requireRole('SALESMAN'));
+
+  // WhatsApp reminders: on by default; the salesman can turn them off and on again (both are audited).
+  app.post<{ Params: { choice: 'opt-in' | 'opt-out' } }>(
+    '/me/whatsapp/:choice',
+    { schema: { params: { type: 'object', required: ['choice'], properties: { choice: { type: 'string', enum: ['opt-in', 'opt-out'] } } } } },
+    async (req) => {
+      const optOut = req.params.choice === 'opt-out';
+      await prisma.user.update({ where: { id: req.user!.id }, data: { whatsappOptOut: optOut, whatsappOptOutAt: optOut ? new Date() : null } });
+      forgetUser(req.user!.phone);
+      await audit(optOut ? 'whatsapp_opt_out' : 'whatsapp_opt_in', req.user!.id);
+      return { whatsappReminders: !optOut };
+    },
+  );
 
   app.get('/me/home', async (req): Promise<SalesmanHome> => {
     const me = req.user!;
