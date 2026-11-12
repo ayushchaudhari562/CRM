@@ -1,5 +1,5 @@
 // App-wide constants (not data).
-export const APP_NAME = 'Sales CRM';
+export const APP_NAME = 'JTA';
 
 // Which visit fields a salesman may edit, and for how long. Shared by the app AND the API (the API enforces it).
 // The window starts when the server saved the visit (not the phone's clock).
