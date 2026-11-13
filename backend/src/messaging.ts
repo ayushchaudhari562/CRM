@@ -54,7 +54,7 @@ const meta: SendTemplate = async (to, template, params) => {
     res = await fetch(`${GRAPH}/${m.phoneNumberId}/messages`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${m.token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(metaBody(to, template, params, m.templates[template], m.language)),
+      body: JSON.stringify(metaBody(to, template, params, m.templates[template], m.languages[template])),
       signal: AbortSignal.timeout(10_000),
     });
   } catch (e) {
