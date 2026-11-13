@@ -1,7 +1,8 @@
 // OTP login on our own server; the messaging provider only delivers the code (WhatsApp template "otp").
-// Rules: 6 digits, 5 min, max 5 wrong tries, 60 s between codes, max 3 codes per 15 min, a new code
+// Rules: 6 digits, 5 min, max 5 wrong tries, 60 s between codes, max 3 codes per 5 min, a new code
 // cancels the old one, single use. Only an HMAC of the code is stored, compared in constant time, never logged.
-// Registered and unknown numbers get the same answers (unknown numbers are never sent anything).
+// A number that is not registered (or is deactivated) is told so at once and is never sent anything.
+// (Product choice: this reveals whether a number belongs to the company; the per-IP limit keeps guessing slow.)
 import { createHmac, randomInt, timingSafeEqual } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import { prisma } from './db';
@@ -16,7 +17,7 @@ import { createSession, refreshSession, revokeAllForUser, revokeByToken } from '
 export const OTP_TTL_MS = 5 * 60_000;
 export const MAX_WRONG = 5;
 export const RESEND_GAP_MS = 60_000;
-const WINDOW_MS = 15 * 60_000;
+const WINDOW_MS = 5 * 60_000;
 const MAX_PER_WINDOW = 3;
 
 const hashCode = (phone: string, code: string) => createHmac('sha256', env.authSecret!).update(`${phone}:${code}`).digest('hex');
@@ -61,6 +62,11 @@ export async function otpRoutes(app: FastifyInstance, opts: { send?: SendTemplat
     async (req) => {
       off();
       const phone = toE164(req.body.phone);
+      // Only numbers the manager added can log in: say so before any code is made or sent.
+      const user = await prisma.user.findUnique({ where: { phone } });
+      if (!user) throw new HttpError(403, 'not_registered', 'This number is not registered. Ask your manager to add you.');
+      if (!user.isActive) throw new HttpError(403, 'inactive', 'Your account is deactivated. Contact your manager.');
+
       const now = Date.now();
       const recent = await prisma.otpCode.findMany({
         where: { phone, createdAt: { gte: new Date(now - WINDOW_MS) } },
@@ -69,27 +75,24 @@ export async function otpRoutes(app: FastifyInstance, opts: { send?: SendTemplat
       });
       const wait = recent[0] ? RESEND_GAP_MS - (now - recent[0].createdAt.getTime()) : 0;
       if (wait > 0) throw new HttpError(429, 'otp_wait', `Please wait ${Math.ceil(wait / 1000)} seconds before asking for a new code.`);
-      if (recent.length >= MAX_PER_WINDOW) throw new HttpError(429, 'otp_limit', 'Too many codes. Please try again in 15 minutes.');
+      if (recent.length >= MAX_PER_WINDOW) throw new HttpError(429, 'otp_limit', 'Too many codes. Please try again in 5 minutes.');
 
-      const user = await prisma.user.findUnique({ where: { phone } });
       const code = newCode();
-      // A new code cancels any older one. Unknown numbers get a row too (random hash, never sent).
+      // A new code cancels any older one.
       await prisma.otpCode.updateMany({ where: { phone, usedAt: null }, data: { usedAt: new Date() } });
       const row = await prisma.otpCode.create({
-        data: { phone, codeHash: hashCode(phone, user?.isActive ? code : `x${randomInt(0, 1e9)}`), expiresAt: new Date(now + OTP_TTL_MS) },
+        data: { phone, codeHash: hashCode(phone, code), expiresAt: new Date(now + OTP_TTL_MS) },
         select: { id: true },
       });
 
-      if (user?.isActive) {
-        try {
-          await send(phone, 'otp', [code]);
-        } catch (e) {
-          await prisma.otpCode.updateMany({ where: { id: row.id }, data: { usedAt: new Date() } });
-          req.log.warn({ err: e instanceof MessagingError ? e.message : String(e) }, 'OTP send failed');
-          throw new HttpError(503, 'messaging_busy', 'WhatsApp service is busy. Please try again.');
-        }
-        await audit('otp_sent', user.id);
+      try {
+        await send(phone, 'otp', [code]);
+      } catch (e) {
+        await prisma.otpCode.updateMany({ where: { id: row.id }, data: { usedAt: new Date() } });
+        req.log.warn({ err: e instanceof MessagingError ? e.message : String(e) }, 'OTP send failed');
+        throw new HttpError(503, 'messaging_busy', 'WhatsApp service is busy. Please try again.');
       }
+      await audit('otp_sent', user.id);
       return { ok: true, resendInSec: RESEND_GAP_MS / 1000, expiresInSec: OTP_TTL_MS / 1000 };
     },
   );
@@ -120,7 +123,7 @@ export async function otpRoutes(app: FastifyInstance, opts: { send?: SendTemplat
       if (!claimed.count) throw new HttpError(401, 'otp_expired', 'Code expired. Please ask for a new one.');
 
       const user = await prisma.user.findUnique({ where: { phone } });
-      if (!user) throw new HttpError(401, 'wrong_otp', 'Wrong code.'); // cannot happen: unknown numbers get a random hash
+      if (!user) throw new HttpError(401, 'wrong_otp', 'Wrong code.'); // cannot happen: no code is ever made for an unknown number
       if (!user.isActive) throw new HttpError(403, 'inactive', 'Your account is deactivated. Contact your manager.');
       const tokens = await createSession(user);
       await audit('login', user.id);

@@ -79,17 +79,31 @@ const verify = (otp: string, phone = '9000000100') => post('/auth/verify-otp', {
 const age = (ms: number) => otps.forEach((o) => (o.createdAt = new Date(o.createdAt.getTime() - ms)));
 
 describe('POST /auth/request-otp', () => {
-  it('registered and unknown numbers get the same answer; only an HMAC is stored', async () => {
-    const a = await ask('9000000100');
-    const b = await ask('9999999999');
-    assert.equal(a.statusCode, 200);
-    assert.deepEqual(a.json(), b.json());
-    assert.equal(otps.length, 2);
-    assert.ok(otps.every((o) => /^[0-9a-f]{64}$/.test(o.codeHash) && !o.codeHash.includes('123456')));
-    assert.deepEqual(audits.map((x) => x.action), ['otp_sent']); // nothing is sent to the unknown number
+  it('registered number: code sent, only an HMAC is stored', async () => {
+    const r = await ask('9000000100');
+    assert.equal(r.statusCode, 200);
+    assert.equal(otps.length, 1);
+    assert.ok(/^[0-9a-f]{64}$/.test(otps[0].codeHash) && !otps[0].codeHash.includes('123456'));
+    assert.deepEqual(audits.map((x) => x.action), ['otp_sent']);
   });
 
-  it('60 s between codes, max 3 per 15 min, a new code cancels the old one', async () => {
+  it('number not registered: told at once, nothing is created or sent', async () => {
+    const r = await ask('9999999999');
+    assert.equal(r.statusCode, 403);
+    assert.equal(r.json().error, 'not_registered');
+    assert.match(r.json().message, /not registered/);
+    assert.equal(otps.length, 0);
+    assert.equal(audits.length, 0);
+  });
+
+  it('deactivated number: told so, nothing is sent', async () => {
+    const r = await ask('9000000109');
+    assert.equal(r.statusCode, 403);
+    assert.equal(r.json().error, 'inactive');
+    assert.equal(otps.length, 0);
+  });
+
+  it('60 s between codes, max 3 per 5 min, a new code cancels the old one', async () => {
     await ask();
     assert.equal((await ask()).json().error, 'otp_wait');
     age(61_000);
@@ -98,7 +112,9 @@ describe('POST /auth/request-otp', () => {
     age(61_000);
     await ask();
     age(61_000);
-    assert.equal((await ask()).json().error, 'otp_limit');
+    assert.equal((await ask()).json().error, 'otp_limit'); // 3 codes inside 5 minutes
+    age(3 * 60_000); // the first code is now older than 5 minutes
+    assert.equal((await ask()).statusCode, 200);
   });
 
   it('sender down -> 503 (not 500) and the code is cancelled', async () => {
@@ -139,9 +155,8 @@ describe('POST /auth/verify-otp', () => {
     assert.equal((await verify('123456')).json().error, 'otp_expired');
   });
 
-  it('unknown number: the test code does not work', async () => {
-    await ask('9999999999');
-    assert.equal((await verify('123456', '9999999999')).json().error, 'wrong_otp');
+  it('a number that never asked for a code cannot log in', async () => {
+    assert.equal((await verify('123456', '9999999999')).json().error, 'otp_expired');
   });
 });
 

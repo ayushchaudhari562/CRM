@@ -34,6 +34,8 @@ export const env = {
   devJwtSecret,
   // Signs our access tokens and the OTP hashes. Without it, OTP login is off (the old logins keep working).
   authSecret: authSecret(),
+  // Managers created at start-up (see admins.ts). Empty = none.
+  adminPhones: process.env.ADMIN_PHONES?.trim() ?? '',
   messaging: messagingConfig(),
 };
 
