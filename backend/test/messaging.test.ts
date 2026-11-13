@@ -14,7 +14,7 @@ after(() => {
   globalThis.fetch = realFetch;
   console.info = realInfo;
 });
-const meta = { provider: 'meta', token: 'EAAtest', phoneNumberId: '123456789012345', templates: { otp: 'jta_login_otp', reminder: 'jta_visit_reminder' }, language: 'en' } as const;
+const meta = { provider: 'meta', token: 'EAAtest', phoneNumberId: '123456789012345', templates: { otp: 'jta_login_otp', reminder: 'jta_visit_reminder' }, languages: { otp: 'en_US', reminder: 'en' } } as const;
 const metaError = (status: number, code: number, headers: Record<string, string> = {}) =>
   (async () => new Response(JSON.stringify({ error: { code, message: 'x' } }), { status, headers })) as unknown as typeof fetch;
 
@@ -46,7 +46,7 @@ describe('sendTemplate', () => {
     assert.equal(auth, 'Bearer EAAtest');
     assert.equal(body.to, '919000000100');
     assert.equal(body.template.name, 'jta_visit_reminder');
-    assert.deepEqual(body.template.language, { code: 'en' });
+    assert.deepEqual(body.template.language, { code: 'en' }); // each template has its own language
     assert.deepEqual(body.template.components, [
       { type: 'body', parameters: [{ type: 'text', text: 'Rahul Sharma' }, { type: 'text', text: 'Om Super Market' }, { type: 'text', text: '11:00 am' }] },
     ]);
@@ -58,6 +58,7 @@ describe('sendTemplate', () => {
     globalThis.fetch = (async (_u: string, init: RequestInit) => ((body = JSON.parse(String(init.body))), new Response('{}'))) as typeof fetch;
     await sendTemplate('+919000000100', 'otp', ['482913']);
     assert.equal(body.template.name, 'jta_login_otp');
+    assert.deepEqual(body.template.language, { code: 'en_US' });
     assert.deepEqual(body.template.components[1], { type: 'button', sub_type: 'url', index: '0', parameters: [{ type: 'text', text: '482913' }] });
   });
 
