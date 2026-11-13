@@ -76,6 +76,7 @@ export default function MeetingDetailsScreen() {
   const [voice, setVoice] = useState<VoiceClip | null>(null);
   // Uploaded once: pressing Submit again after an error does not upload the same file twice.
   const [uploadedVoice, setUploadedVoice] = useState<{ uri: string; path: string } | null>(null);
+  const [uploadedSelfie, setUploadedSelfie] = useState<{ uri: string; path: string } | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -184,6 +185,15 @@ export default function MeetingDetailsScreen() {
         setUploadedVoice({ uri: voice.uri, path });
         voiceNote = { path, seconds: voice.seconds };
       }
+      let selfiePath: string | null = null;
+      if (checkIn.selfieUri) {
+        const path =
+          uploadedSelfie?.uri === checkIn.selfieUri
+            ? uploadedSelfie.path
+            : await crmService.uploadLocal('selfie', checkIn.selfieUri, 'image/jpeg');
+        setUploadedSelfie({ uri: checkIn.selfieUri, path });
+        selfiePath = path;
+      }
       const saved = await crmService.createMeeting({
         clientRequestId,
         clientId,
@@ -200,6 +210,7 @@ export default function MeetingDetailsScreen() {
         checkInAt: checkIn.checkInAt,
         location: checkIn.location,
         voiceNote,
+        selfiePath,
       });
       setLastSavedMeeting(saved);
       setCheckIn(null);
