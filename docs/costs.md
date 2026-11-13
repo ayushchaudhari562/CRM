@@ -40,8 +40,9 @@ With Render Starter instead of Standard: about ₹4,500 – ₹5,000 a month.
 
 ## 3. Details
 
-### 3.1 Storage growth (voice notes kept for life)
-400 recordings a day, about 30 minutes each at 32 kbps ≈ 7 MB each.
+### 3.1 Storage growth (voice notes & visit selfies kept for life)
+- Voice notes: ~400 recordings/day, ~30 min each at 32 kbps ≈ 7 MB each (~2.8 GB/day).
+- Check-in selfies: ~400 selfies/day, compressed JPEG ≈ 250 KB each (~100 MB/day, ~3 GB/month).
 
 | After | Stored | Extra Supabase cost / month (~$0.021 per GB above 100 GB, *from memory*) |
 |---|---|---|
