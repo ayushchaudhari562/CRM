@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
-import { MapPin, ChevronRight } from 'lucide-react-native';
+import { MapPin, ChevronRight, Calendar } from 'lucide-react-native';
 import { useQuery } from '@tanstack/react-query';
 import { useTheme, fonts } from '../../../src/theme';
 import {
@@ -40,6 +40,10 @@ export default function SalesmanHomeScreen() {
   const { data: todayVisits = [], isLoading: visitsLoading } = useQuery({
     queryKey: ['meetings', 'today'],
     queryFn: () => crmService.getMeetings('today'),
+  });
+  const { data: todayRoute } = useQuery({
+    queryKey: ['weekly-plan', 'today'],
+    queryFn: () => crmService.getWeeklyPlan(),
   });
 
   const punch = usePunch();
@@ -129,6 +133,33 @@ export default function SalesmanHomeScreen() {
           size="hero"
           icon={<MapPin size={22} color={theme.colors.onAccent} />}
         />
+
+        {todayRoute?.stops && todayRoute.stops.length > 0 ? (
+          <Pressable
+            onPress={() => router.push('/(salesman)/(tabs)/profile')}
+            accessibilityRole="button"
+            accessibilityLabel="Open today's route plan"
+            style={({ pressed }) => [
+              styles.routeBanner,
+              {
+                backgroundColor: theme.colors.surface2,
+                borderColor: theme.colors.border,
+                opacity: pressed ? 0.8 : 1,
+              },
+            ]}
+          >
+            <Calendar size={18} color={theme.colors.accent} />
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={[styles.routeBannerTitle, { color: theme.colors.text }]}>
+                Today&apos;s Planned Route
+              </Text>
+              <Text style={[styles.routeBannerSub, { color: theme.colors.muted }]}>
+                {todayRoute.stops.filter((s) => s.status === 'VISITED').length} of {todayRoute.stops.length} stops visited
+              </Text>
+            </View>
+            <ChevronRight size={16} color={theme.colors.muted} />
+          </Pressable>
+        ) : null}
 
         <SegmentedControl<Tab>
           options={[
@@ -347,6 +378,22 @@ const styles = StyleSheet.create({
   },
   statusText: {
     fontFamily: fonts.medium,
+    fontSize: 12,
+  },
+  routeBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    gap: 12,
+  },
+  routeBannerTitle: {
+    fontFamily: fonts.semibold,
+    fontSize: 13,
+  },
+  routeBannerSub: {
+    fontFamily: fonts.regular,
     fontSize: 12,
   },
 });

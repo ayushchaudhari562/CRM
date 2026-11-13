@@ -118,7 +118,7 @@ describe('POST /auth/request-otp', () => {
   });
 
   it('sender down -> 503 (not 500) and the code is cancelled', async () => {
-    env.messaging = { provider: 'meta', token: 't', phoneNumberId: '1', templates: { otp: 'a', reminder: 'b' }, languages: { otp: 'en', reminder: 'en' } };
+    env.messaging = { provider: 'meta', token: 't', phoneNumberId: '1', templates: { otp: 'a', reminder: 'b', route_alert: 'c' }, languages: { otp: 'en', reminder: 'en', route_alert: 'en' } };
     globalThis.fetch = (async () => new Response('{"error":{"code":2}}', { status: 500 })) as typeof fetch;
     const r = await ask();
     assert.equal(r.statusCode, 503);

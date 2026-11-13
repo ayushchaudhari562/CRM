@@ -273,3 +273,33 @@ export interface ApiErrorBody {
   error: string; // machine code, e.g. "not_registered"
   message: string; // human text
 }
+
+// ---------- Weekly Route Plan ----------
+
+export type PlannedStopStatus = 'PENDING' | 'VISITED' | 'MISSED';
+
+export interface PlannedStop {
+  id: string;
+  clientName: string;
+  location: string;
+  contactNumber: string | null;
+  status: PlannedStopStatus;
+  visitedMeetingId: string | null;
+  visitedAt: string | null;
+}
+
+export interface WeeklyPlan {
+  id: string;
+  salesmanId: string;
+  date: string; // YYYY-MM-DD
+  stops: PlannedStop[];
+}
+
+export interface SetWeeklyPlanInput {
+  date: string; // YYYY-MM-DD
+  stops: {
+    clientName: string;
+    location: string;
+    contactNumber?: string | null;
+  }[];
+}

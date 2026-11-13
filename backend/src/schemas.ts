@@ -209,3 +209,31 @@ export const locationPingsBody = {
 } as const;
 
 export const dayRouteQuery = { ...idParam, querystring: { type: 'object', properties: { date: day } } } as const;
+
+export const weeklyPlanQuery = { querystring: { type: 'object', properties: { date: day } } } as const;
+
+export const setWeeklyPlanBody = {
+  body: {
+    type: 'object',
+    required: ['date', 'stops'],
+    additionalProperties: false,
+    properties: {
+      date: day,
+      stops: {
+        type: 'array',
+        minItems: 1,
+        maxItems: 30,
+        items: {
+          type: 'object',
+          required: ['clientName', 'location'],
+          additionalProperties: false,
+          properties: {
+            clientName: { type: 'string', minLength: 1, maxLength: 100 },
+            location: { type: 'string', minLength: 1, maxLength: 200 },
+            contactNumber: { type: ['string', 'null'], maxLength: 20 },
+          },
+        },
+      },
+    },
+  },
+} as const;

@@ -70,6 +70,7 @@ model User {
   targets       Target[]
   locationPings LocationPing[]
   sessions      Session[]
+  weeklyPlans   WeeklyPlan[]
 }
 
 // ---------- Clients ----------
@@ -274,4 +275,43 @@ model AuditLog {
 
   @@index([userId, createdAt])
   @@index([createdAt])
+}
+
+// ---------- Weekly Route Plan ----------
+
+enum PlannedStopStatus {
+  PENDING
+  VISITED
+  MISSED
+}
+
+model WeeklyPlan {
+  id         String   @id @default(cuid())
+  salesmanId String
+  date       DateTime @db.Date
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt  DateTime @updatedAt @db.Timestamptz(3)
+
+  salesman   User          @relation(fields: [salesmanId], references: [id], onDelete: Cascade)
+  stops      PlannedStop[]
+
+  @@unique([salesmanId, date])
+  @@index([salesmanId, date])
+}
+
+model PlannedStop {
+  id               String            @id @default(cuid())
+  planId           String
+  clientName       String
+  location         String
+  contactNumber    String?
+  status           PlannedStopStatus @default(PENDING)
+  visitedMeetingId String?
+  visitedAt        DateTime?         @db.Timestamptz(3)
+  createdAt        DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime          @updatedAt @db.Timestamptz(3)
+
+  plan             WeeklyPlan        @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@index([planId, status])
 }
