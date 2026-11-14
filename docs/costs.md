@@ -2,7 +2,7 @@
 
 **Target Scale:** ~400–500 Active Salesmen  
 **Date:** November 2026  
-**Currency:** All amounts shown in Indian Rupees (₹) with USD reference ($1 ≈ ₹85).
+**Currency Conversion:** **$1 USD = ₹95 INR** (Bank Forex & GST buffer included)
 
 ---
 
@@ -10,46 +10,47 @@
 
 | Expense Category | Amount (Approx.) | Frequency | Note |
 |---|---|---|---|
-| **One-Time Setup & Accounts** | **₹2,400** | One-time | Play Store License ($25) + Dedicated SIM Card |
-| **Monthly Cloud & Servers** | **₹4,250 – ₹4,850** | Monthly | Always-on Backend (Render) + Postgres DB & Storage (Supabase Pro) |
-| **Monthly WhatsApp Usage** | **₹1,800 – ₹2,400** | Monthly | 400 Salesmen (Login OTPs + 8 AM Reminders + 10 PM Route Alerts) |
+| **One-Time Setup & Accounts** | **₹2,625** | One-time | Play Store License ($25 = ₹2,375) + Dedicated SIM Card (₹250) |
+| **Monthly Cloud & Servers** | **₹4,750** | Monthly | Always-on Backend (Render $25) + Postgres DB & Storage (Supabase Pro $25) |
+| **Monthly WhatsApp Usage** | **₹2,000 – ₹2,450** | Monthly | 400 Salesmen (Login OTPs + 8 AM Reminders + 10 PM Route Alerts) |
 | **Maps & Location** | **₹0 (Free tier)** | Monthly | Ola Maps 1,00,000 requests/month included free |
-| **Total Estimated Monthly Running Cost** | **~₹6,000 – ₹7,000 / month** | Recurring | Covers full 400–500 salesmen infrastructure |
+| **Total Estimated Monthly Running Cost** | **~₹6,800 – ₹7,200 / month** | Recurring | Covers full 400–500 salesmen infrastructure |
 
-*(Optional: Apple App Store license is ₹8,400/year if salesmen use iPhones).*
+*(Optional: Apple App Store developer license is ₹9,405/year [$99] if salesmen use iPhones).*
 
 ---
 
 ## 2. One-Time Setup Costs
 
-| Item | Cost | Purpose | Paid To |
-|---|---|---|---|
-| **Google Play Developer Account** | **₹2,125** ($25) | Lifetime license to publish & update the Android app on Google Play Store | Google |
-| **Dedicated Company SIM Card** | **~₹250** | Official WhatsApp Business Bot number (for sending OTPs & alerts) | Telecom (Jio/Airtel) |
-| **Apple Developer Account (Optional)** | **₹8,400** ($99/year) | Only required if salesmen or managers use iOS/iPhones | Apple |
-| **Custom Domain (Optional)** | **~₹800** / year | e.g., `api.jtaindia.com` (Professional API address) | Namecheap / GoDaddy |
+| Item | USD Cost | INR Cost (@ ₹95/$) | Purpose | Paid To |
+|---|---|---|---|---|
+| **Google Play Developer Account** | $25 | **₹2,375** | Lifetime license to publish & update Android app on Google Play Store | Google |
+| **Dedicated Company SIM Card** | — | **~₹250** | Official WhatsApp Business Bot number (for sending OTPs & alerts) | Telecom (Jio/Airtel) |
+| **Apple Developer Account (Optional)** | $99 / yr | **₹9,405** / yr | Only required if salesmen or managers use iOS/iPhones | Apple |
+| **Custom Domain (Optional)** | ~$10 / yr | **~₹950** / yr | e.g., `api.jtaindia.com` (Professional API address) | Namecheap / GoDaddy |
 
 ---
 
 ## 3. Monthly Recurring Costs (Production Infrastructure)
 
 ### A. Cloud Hosting & Database
-| Service | Plan | Monthly Cost | Purpose |
-|---|---|---|---|
-| **Supabase (PostgreSQL Database & Storage)** | **Pro Plan** | **₹2,125 / mo** ($25) | Secure cloud database, daily automated backups, 100 GB private storage for visit selfies and voice notes. |
-| **Render (Backend API Server)** | **Standard / Starter** | **₹2,125 / mo** ($25) | Always-on server handling 400 salesmen punch-ins, meeting sync, GPS tracking, and cron jobs. *(Can start on ₹600/mo Starter plan and upgrade if needed).* |
+| Service | Plan | USD Cost | INR Cost (@ ₹95/$) | Purpose |
+|---|---|---|---|---|
+| **Supabase (PostgreSQL Database & Storage)** | **Pro Plan** | $25 / mo | **₹2,375 / mo** | Secure cloud database, daily automated backups, 100 GB private storage for visit selfies and voice notes. |
+| **Render (Backend API Server)** | **Standard** | $25 / mo | **₹2,375 / mo** | Always-on server handling 400 salesmen punch-ins, meeting sync, GPS tracking, and cron jobs. *(Can start on Starter $7 ≈ ₹665/mo and scale up).* |
+| **Subtotal (Servers & DB)** | | **$50 / mo** | **₹4,750 / mo** | |
 
 ---
 
 ### B. WhatsApp Cloud API (Meta Official)
-Direct billing with Meta — **₹0 middleman or agency commission**. Pay-per-message on usage:
+Direct official billing with Meta — **₹0 middleman or agency commission**. Pay-per-message on actual usage:
 
-| Message Type | Meta Template | Rate / Message | Estimated Vol / Month | Approx. Cost |
+| Message Type | Meta Template | Rate / Message | Estimated Vol / Month | Approx. Cost (INR) |
 |---|---|---|---|---|
-| **Login Verification (OTP)** | `jta_login_otp` (Authentication) | ~₹0.14 | ~300 OTPs (Salesmen stay logged in) | **~₹45** |
-| **Daily 8:00 AM Task Reminder** | `jta_visit_reminder` (Utility) | ~₹0.13 | ~12,000 to 15,000 messages (Follow-up client visits) | **₹1,600 – ₹1,950** |
-| **Night 10:00 PM Route Deviation Alert** | `jta_route_alert` (Utility) | ~₹0.13 | ~500 to 1,000 alerts to Managers | **₹65 – ₹130** |
-| **Total WhatsApp Monthly Cost** | | | | **~₹1,800 – ₹2,200 / mo** |
+| **Login Verification (OTP)** | `jta_login_otp` (Authentication) | ~₹0.15 | ~300 OTPs (Salesmen stay logged in) | **~₹50** |
+| **Daily 8:00 AM Task Reminder** | `jta_visit_reminder` (Utility) | ~₹0.14 | ~12,000 to 15,000 messages (Follow-up client visits) | **₹1,800 – ₹2,100** |
+| **Night 10:00 PM Route Deviation Alert** | `jta_route_alert` (Utility) | ~₹0.14 | ~500 to 1,000 alerts to Managers | **₹70 – ₹140** |
+| **Total WhatsApp Monthly Cost** | | | | **~₹2,000 – ₹2,300 / mo** |
 
 *Note: Meta provides first 1,000 service conversations free every month.*
 
@@ -66,13 +67,13 @@ Direct billing with Meta — **₹0 middleman or agency commission**. Pay-per-me
 ## 4. Storage Scaling Plan (Long Term)
 The system retains **100% of visit records, client selfies, and voice notes for life**:
 - Supabase Pro includes **100 GB storage free**.
-- Extra storage above 100 GB costs ~$0.021/GB (~₹1.80 per GB per month).
+- Extra storage above 100 GB costs ~$0.021/GB (~₹2.00 per GB per month @ ₹95/$).
 
 | Timeline | Total Stored Files | Approx Extra Storage Cost |
 |---|---|---|
 | **Months 1 – 3** | Under 100 GB | **₹0** (Included in Pro plan) |
-| **Month 6** | ~350 GB | **~₹450 / month** |
-| **Year 1** | ~750 GB | **~₹1,150 / month** |
+| **Month 6** | ~350 GB | **~₹500 / month** |
+| **Year 1** | ~750 GB | **~₹1,300 / month** |
 
 *(Cost Optimization: After 1 year, older archived recordings can be shifted to Cloudflare R2 / Backblaze at ₹0.50/GB if needed, keeping everything accessible).*
 
