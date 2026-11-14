@@ -2,6 +2,7 @@ import { env } from './env';
 import { prisma } from './db';
 import { buildApp } from './app';
 import { remindersEnabled, sendDueReminders } from './reminders';
+import { sendNightlyRouteAlerts } from './routeAlerts';
 import { ensureAdmins } from './admins';
 
 const app = buildApp();
@@ -12,11 +13,15 @@ const close = async () => {
   await prisma.$disconnect();
   process.exit(0);
 };
-// WhatsApp reminders: every 5 minutes, only with a real provider (mock would mark them sent without sending).
+// WhatsApp reminders & route alerts: every 5 minutes, only with a real provider (mock would mark them sent without sending).
 if (remindersEnabled()) {
   const run = () => sendDueReminders().catch((e: Error) => console.error(`Reminder job: ${e.message}`));
   setInterval(run, 5 * 60_000).unref();
   setTimeout(run, 30_000).unref();
+
+  const runRouteAlerts = () => sendNightlyRouteAlerts().catch((e: Error) => console.error(`Route alert job: ${e.message}`));
+  setInterval(runRouteAlerts, 5 * 60_000).unref();
+  setTimeout(runRouteAlerts, 45_000).unref();
 } else console.warn('WhatsApp reminders are OFF (MESSAGING_PROVIDER=mock; set "meta" to send).');
 if (!env.authSecret) console.warn('OTP login is OFF (set AUTH_SECRET to turn it on).');
 

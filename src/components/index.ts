@@ -17,3 +17,4 @@ export * from './VoicePlayer';
 export * from './VoiceRecorder';
 export * from './TeamMap';
 export * from './OlaMapView';
+export * from './WeeklyRoutePlanCard';

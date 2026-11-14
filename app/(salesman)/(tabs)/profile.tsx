@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { Phone, LogOut } from 'lucide-react-native';
 import { useTheme, fonts } from '../../../src/theme';
 import { useAppStore } from '../../../src/store';
-import { Card, Button, Field } from '../../../src/components';
+import { Card, Button, Field, WeeklyRoutePlanCard } from '../../../src/components';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { crmService } from '../../../src/services';
 import { formatClock, formatDuration, formatTime } from '../../../src/utils/format';
@@ -71,6 +71,8 @@ export default function SalesmanProfileTab() {
       </Card>
 
       <TargetCard />
+
+      <WeeklyRoutePlanCard />
 
       <View style={{ flex: 1 }} />
 

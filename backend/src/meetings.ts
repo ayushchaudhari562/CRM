@@ -97,6 +97,25 @@ export async function saveMeeting(salesmanId: string, b: CreateMeetingInput): Pr
         include: meetingInclude,
       });
       if (nextVisitAt) await tx.followUp.create({ data: { salesmanId, clientId, meetingId: m.id, dueAt: nextVisitAt } });
+      // Mark matching planned route stop as VISITED if scheduled for today
+      try {
+        const todayDate = new Date(Date.UTC(checkInAt.getUTCFullYear(), checkInAt.getUTCMonth(), checkInAt.getUTCDate()));
+        const plan = await tx.weeklyPlan.findFirst({
+          where: { salesmanId, date: todayDate },
+          include: { stops: { where: { status: 'PENDING' } } },
+        });
+        if (plan && plan.stops.length) {
+          const norm = (s: string) => s.toLowerCase().trim();
+          const targetName = norm(b.clientName);
+          const matched = plan.stops.find((s) => norm(s.clientName) === targetName || targetName.includes(norm(s.clientName)) || norm(s.clientName).includes(targetName));
+          if (matched) {
+            await tx.plannedStop.update({
+              where: { id: matched.id },
+              data: { status: 'VISITED', visitedMeetingId: m.id, visitedAt: checkInAt },
+            });
+          }
+        }
+      } catch {}
       return m;
     })
     .catch((e: { code?: string }) => {

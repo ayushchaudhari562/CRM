@@ -59,11 +59,16 @@ function messagingConfig() {
     provider,
     token: need('WHATSAPP_TOKEN'), // permanent System User token
     phoneNumberId: need('WHATSAPP_PHONE_NUMBER_ID'), // the sender (Meta's ID, not the phone number)
-    templates: { otp: need('WHATSAPP_OTP_TEMPLATE'), reminder: need('WHATSAPP_REMINDER_TEMPLATE') },
+    templates: {
+      otp: need('WHATSAPP_OTP_TEMPLATE'),
+      reminder: need('WHATSAPP_REMINDER_TEMPLATE'),
+      route_alert: process.env.WHATSAPP_ROUTE_ALERT_TEMPLATE?.trim() || 'jta_route_alert',
+    },
     // A template exists per language code ("en" and "en_US" are different): it must match what Meta shows.
     languages: {
       otp: process.env.WHATSAPP_OTP_LANG?.trim() || process.env.WHATSAPP_TEMPLATE_LANG?.trim() || 'en',
       reminder: process.env.WHATSAPP_REMINDER_LANG?.trim() || process.env.WHATSAPP_TEMPLATE_LANG?.trim() || 'en',
+      route_alert: process.env.WHATSAPP_ROUTE_ALERT_LANG?.trim() || process.env.WHATSAPP_TEMPLATE_LANG?.trim() || 'en_US',
     },
   } as const;
 }

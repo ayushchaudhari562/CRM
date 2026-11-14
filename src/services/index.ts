@@ -30,6 +30,8 @@ import type {
   LatLng,
   LocationPingsInput,
   SalesmanLocation,
+  WeeklyPlan,
+  SetWeeklyPlanInput,
 } from '../types';
 import Constants from 'expo-constants';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -219,6 +221,10 @@ export const crmService = {
   getMyTargets: (days = 7) => request<TargetProgress[]>(`/me/targets?days=${days}`),
   setMyTarget: (input: SetMyTargetInput) =>
     request<TargetProgress>('/me/target', { method: 'PUT', body: input }),
+  getWeeklyPlan: (date?: string) =>
+    request<WeeklyPlan>(`/me/weekly-plan${date ? `?date=${encodeURIComponent(date)}` : ''}`),
+  setWeeklyPlan: (input: SetWeeklyPlanInput) =>
+    request<WeeklyPlan>('/me/weekly-plan', { method: 'POST', body: input }),
 
   // Admin
   getAdminOverview: () => request<AdminOverview>('/admin/overview'),

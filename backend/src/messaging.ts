@@ -6,7 +6,8 @@ const GRAPH = 'https://graph.facebook.com/v23.0';
 
 // otp: {{1}} code (Meta's fixed authentication text + "Copy code" button)
 // reminder: {{1}} salesman name, {{2}} client, {{3}} time
-export type Template = 'otp' | 'reminder';
+// route_alert: {{1}} salesman name, {{2}} X of Y, {{3}} date, {{4}} missed stops
+export type Template = 'otp' | 'reminder' | 'route_alert';
 
 /** retryable = network error, timeout, 5xx, or a Meta "try again later" code. Anything else is final. */
 export class MessagingError extends Error {

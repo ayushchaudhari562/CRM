@@ -14,7 +14,7 @@ after(() => {
   globalThis.fetch = realFetch;
   console.info = realInfo;
 });
-const meta = { provider: 'meta', token: 'EAAtest', phoneNumberId: '123456789012345', templates: { otp: 'jta_login_otp', reminder: 'jta_visit_reminder' }, languages: { otp: 'en_US', reminder: 'en' } } as const;
+const meta = { provider: 'meta', token: 'EAAtest', phoneNumberId: '123456789012345', templates: { otp: 'jta_login_otp', reminder: 'jta_visit_reminder', route_alert: 'jta_route_alert' }, languages: { otp: 'en_US', reminder: 'en', route_alert: 'en_US' } } as const;
 const metaError = (status: number, code: number, headers: Record<string, string> = {}) =>
   (async () => new Response(JSON.stringify({ error: { code, message: 'x' } }), { status, headers })) as unknown as typeof fetch;
 
@@ -60,6 +60,18 @@ describe('sendTemplate', () => {
     assert.equal(body.template.name, 'jta_login_otp');
     assert.deepEqual(body.template.language, { code: 'en_US' });
     assert.deepEqual(body.template.components[1], { type: 'button', sub_type: 'url', index: '0', parameters: [{ type: 'text', text: '482913' }] });
+  });
+
+  it('meta route_alert: salesman, missed count, missed details formatted', async () => {
+    env.messaging = meta;
+    let body: any;
+    globalThis.fetch = (async (_u: string, init: RequestInit) => ((body = JSON.parse(String(init.body))), new Response('{}'))) as typeof fetch;
+    await sendTemplate('+919000000001', 'route_alert', ['Punit', '1', 'Gupta Traders (Civil Lines)']);
+    assert.equal(body.template.name, 'jta_route_alert');
+    assert.deepEqual(body.template.language, { code: 'en_US' });
+    assert.deepEqual(body.template.components, [
+      { type: 'body', parameters: [{ type: 'text', text: 'Punit' }, { type: 'text', text: '1' }, { type: 'text', text: 'Gupta Traders (Civil Lines)' }] },
+    ]);
   });
 
   it('meta errors: throughput / 5xx / network retry; not on WhatsApp or bad template is final', async () => {

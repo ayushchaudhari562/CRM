@@ -2,9 +2,9 @@
 import type { FastifyInstance } from 'fastify';
 import { prisma } from '../db';
 import { authenticate, forgetUser, HttpError, requireRole } from '../auth';
-import { editableUntil, followUpInclude, istToday, meetingInclude, OUTCOME_TO_DB, toFollowUp, toMeeting } from '../dto';
+import { editableUntil, followUpInclude, istDay, istToday, meetingInclude, OUTCOME_TO_DB, toFollowUp, toMeeting } from '../dto';
 import { followUpQuery, salesmanTargets } from '../planning';
-import { clientSearchQuery, createMeetingBody, createUploadBody, followUpsQuery, locationPingsBody, punchBody, syncBody, idParam, meetingsQuery, setMyTargetBody, targetsQuery, updateFollowUpBody, updateMeetingBody } from '../schemas';
+import { clientSearchQuery, createMeetingBody, createUploadBody, followUpsQuery, locationPingsBody, punchBody, syncBody, idParam, meetingsQuery, setMyTargetBody, targetsQuery, updateFollowUpBody, updateMeetingBody, weeklyPlanQuery, setWeeklyPlanBody } from '../schemas';
 import { saveMeeting } from '../meetings';
 import { createUpload, withFileUrls } from '../storage';
 import { savePings } from '../tracking';
@@ -257,4 +257,108 @@ export async function salesmanRoutes(app: FastifyInstance) {
     });
     return (await withFileUrls([toMeeting(updated)]))[0];
   });
+
+  // Weekly Route Plan: get planned stops for a date
+  app.get<{ Querystring: { date?: string } }>(
+    '/me/weekly-plan',
+    { schema: weeklyPlanQuery },
+    async (req) => {
+      const me = req.user!;
+      const d = req.query.date ? istDay(req.query.date).date : istToday().date;
+      const plan = await prisma.weeklyPlan.findUnique({
+        where: { salesmanId_date: { salesmanId: me.id, date: d } },
+        include: { stops: { orderBy: { createdAt: 'asc' } } },
+      });
+      if (!plan) {
+        return { id: '', salesmanId: me.id, date: d.toISOString().slice(0, 10), stops: [] };
+      }
+      return {
+        id: plan.id,
+        salesmanId: plan.salesmanId,
+        date: plan.date.toISOString().slice(0, 10),
+        stops: plan.stops.map((s) => ({
+          id: s.id,
+          clientName: s.clientName,
+          location: s.location,
+          contactNumber: s.contactNumber,
+          status: s.status,
+          visitedMeetingId: s.visitedMeetingId,
+          visitedAt: s.visitedAt?.toISOString() ?? null,
+        })),
+      };
+    },
+  );
+
+  // Weekly Route Plan: create or replace planned stops for a date
+  app.post<{ Body: { date: string; stops: { clientName: string; location: string; contactNumber?: string | null }[] } }>(
+    '/me/weekly-plan',
+    { schema: setWeeklyPlanBody },
+    async (req) => {
+      const me = req.user!;
+      const { date, stops } = req.body;
+      const targetDate = istDay(date).date;
+
+      const plan = await prisma.$transaction(async (tx) => {
+        const existing = await tx.weeklyPlan.findUnique({
+          where: { salesmanId_date: { salesmanId: me.id, date: targetDate } },
+          include: { stops: true },
+        });
+
+        if (!existing) {
+          return tx.weeklyPlan.create({
+            data: {
+              salesmanId: me.id,
+              date: targetDate,
+              stops: {
+                create: stops.map((s) => ({
+                  clientName: s.clientName.trim(),
+                  location: s.location.trim(),
+                  contactNumber: s.contactNumber?.trim() || null,
+                  status: 'PENDING',
+                })),
+              },
+            },
+            include: { stops: { orderBy: { createdAt: 'asc' } } },
+          });
+        }
+
+        // Delete existing unvisited stops to replace with updated list
+        await tx.plannedStop.deleteMany({
+          where: { planId: existing.id, status: 'PENDING' },
+        });
+
+        if (stops.length > 0) {
+          await tx.plannedStop.createMany({
+            data: stops.map((s) => ({
+              planId: existing.id,
+              clientName: s.clientName.trim(),
+              location: s.location.trim(),
+              contactNumber: s.contactNumber?.trim() || null,
+              status: 'PENDING',
+            })),
+          });
+        }
+
+        return tx.weeklyPlan.findUniqueOrThrow({
+          where: { id: existing.id },
+          include: { stops: { orderBy: { createdAt: 'asc' } } },
+        });
+      });
+
+      return {
+        id: plan.id,
+        salesmanId: plan.salesmanId,
+        date: plan.date.toISOString().slice(0, 10),
+        stops: plan.stops.map((s) => ({
+          id: s.id,
+          clientName: s.clientName,
+          location: s.location,
+          contactNumber: s.contactNumber,
+          status: s.status,
+          visitedMeetingId: s.visitedMeetingId,
+          visitedAt: s.visitedAt?.toISOString() ?? null,
+        })),
+      };
+    },
+  );
 }
