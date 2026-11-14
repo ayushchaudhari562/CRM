@@ -62,3 +62,4 @@ export async function sendNightlyRouteAlerts(now = new Date(), send: SendTemplat
 
   return alertsSent;
 }
+
