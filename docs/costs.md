@@ -1,92 +1,83 @@
-# JTA Sales CRM: running costs (production setup)
+# JTA Sales CRM — Infrastructure & Production Cost Sheet
 
-Prepared 12 Nov 2026, updated 13 Nov 2026. All figures are estimates. Most rates come from public pricing pages or
-third-party summaries, and some are from memory (marked *from memory*). Check each provider's pricing page before paying.
-Exchange rate used: about ₹85 per US$1.
-
-**What this plan assumes (production, not a test setup):**
-- About **500 salesmen**, all on paid, always-on services (no free plans that sleep or stop).
-- About **15,000 WhatsApp messages a month** (reminders, plus a few login codes).
-- Login code on WhatsApp, and a visit reminder on WhatsApp at 8:00 am to the salesman's login number.
-- All data, including voice notes, is kept for life.
+**Target Scale:** ~400–500 Active Salesmen  
+**Date:** November 2026  
+**Currency:** All amounts shown in Indian Rupees (₹) with USD reference ($1 ≈ ₹85).
 
 ---
 
-## 1. Monthly costs
+## 1. Summary Overview (At a Glance)
 
-| Service | What it does | Production plan | Cost / month (approx.) |
+| Expense Category | Amount (Approx.) | Frequency | Note |
 |---|---|---|---|
-| **Supabase** | Database, file storage (voice notes) | **Pro** (daily backups, no pausing) | **$25 ≈ ₹2,125** + storage above 100 GB (see 3.1) |
-| **Render** | Runs the backend API, always on | **Standard** (for 500 users; **Starter $7 ≈ ₹600** is the minimum always-on plan) | **$25 ≈ ₹2,125** (a load test will show if Starter is enough) |
-| **WhatsApp reminders** (Meta Cloud API) | 8 am reminder to the salesman | Pay per message, card on Meta | **₹1,725 – ₹2,175** for 15,000 messages (see 3.4) |
-| **WhatsApp login codes** | Login code on WhatsApp | Pay per message | **~₹30** (about 200 codes, see 3.2) |
-| **Ola Maps** | Maps in the app (salesman + manager live map) | Prepaid credits | **₹0** up to 1,00,000 requests a month, then a small per-request charge (see 3.3) |
-| **Expo (EAS)** | Builds the APK, sends over-the-air updates | Free | **₹0** (builds wait in a queue; optional ~$19 for faster builds, *from memory*) |
+| **One-Time Setup & Accounts** | **₹2,400** | One-time | Play Store License ($25) + Dedicated SIM Card |
+| **Monthly Cloud & Servers** | **₹4,250 – ₹4,850** | Monthly | Always-on Backend (Render) + Postgres DB & Storage (Supabase Pro) |
+| **Monthly WhatsApp Usage** | **₹1,800 – ₹2,400** | Monthly | 400 Salesmen (Login OTPs + 8 AM Reminders + 10 PM Route Alerts) |
+| **Maps & Location** | **₹0 (Free tier)** | Monthly | Ola Maps 1,00,000 requests/month included free |
+| **Total Estimated Monthly Running Cost** | **~₹6,000 – ₹7,000 / month** | Recurring | Covers full 400–500 salesmen infrastructure |
 
-**Total: about ₹6,000 – ₹6,500 a month** (Supabase + Render Standard + WhatsApp), plus the growing storage cost in 3.1
-and any Ola Maps usage above the free limit.
-With Render Starter instead of Standard: about ₹4,500 – ₹5,000 a month.
-
-## 2. One-time and yearly costs
-
-| Item | Cost (approx.) | Needed for |
-|---|---|---|
-| Google Play developer account | $25 once ≈ ₹2,100 *(from memory)* | Publishing on the Play Store |
-| A new SIM / phone number for WhatsApp | A few hundred rupees | The sender number; it must **not** be used on normal WhatsApp |
-| Apple developer account | $99 / year ≈ ₹8,400 *(from memory)* | Only if salesmen use iPhones |
-| Domain (e.g. api.company.com) | ~₹800 / year *(from memory)* | Optional, nicer API address |
-| DLT registration (India) | ₹0 | **Not needed**: login codes go on WhatsApp, not SMS |
-| Meta Business verification | Free, needs company documents | **Needed for production** (see 3.4) |
-
-## 3. Details
-
-### 3.1 Storage growth (voice notes & visit selfies kept for life)
-- Voice notes: ~400 recordings/day, ~30 min each at 32 kbps ≈ 7 MB each (~2.8 GB/day).
-- Check-in selfies: ~400 selfies/day, compressed JPEG ≈ 250 KB each (~100 MB/day, ~3 GB/month).
-
-| After | Stored | Extra Supabase cost / month (~$0.021 per GB above 100 GB, *from memory*) |
-|---|---|---|
-| 6 months | ~500 GB | ~$9 ≈ ₹765 |
-| 1 year | ~1 TB | ~$19 ≈ ₹1,600 |
-| 3 years | ~3 TB | ~$61 ≈ ₹5,200 |
-
-Later option to save money: move old recordings to cheaper storage (Backblaze B2 / Cloudflare R2). Nothing is deleted.
-
-### 3.2 Login codes on WhatsApp (Meta Cloud API)
-- Our server makes the code; Meta delivers it with the approved **authentication** template (`jta_login_otp`).
-- About **₹0.13–0.15 per code** (Meta's India authentication rate, third-party sources).
-- The app keeps salesmen logged in until they sign out, so codes are rare: about 200 a month ≈ **₹30**.
-- Only numbers added by a manager can ask for a code, so no money is spent on strangers.
-- A number can ask for at most 3 codes in 5 minutes, with 60 seconds between codes.
-- No DLT, no SMS provider.
-
-### 3.3 Ola Maps
-- Indian provider, rupee prepaid credits, no card needed for the free tier.
-- **First 1,00,000 requests every month are free** (pricing from 1 Sep 2026).
-- A map screen loads several map tiles, and each may count as a request. Real use will show if 500 salesmen
-  stay inside the free limit. If not, the per-request charge applies (see Ola's pricing page).
-
-### 3.4 WhatsApp reminders (Meta Cloud API)
-- Sent at **8:00 am** on the follow-up day to the salesman's login number, with the approved **utility** template
-  (`jta_visit_reminder`: "Good morning {{1}}! Today's task: visit {{2}} at {{3}}. - JTA Manager").
-- About **₹0.115–0.145 per message** (Meta's India utility rate; sources differ).
-  **15,000 a month ≈ ₹1,725 – ₹2,175.** Meta charges the card added in WhatsApp Manager; there is no middleman fee.
-- 15,000 a month is about 500 a day. If most of the 500 salesmen get a reminder on the same day, that is about
-  **500 different numbers in one day**.
-- **Why Meta Business verification is needed for production:** without it, WhatsApp allows messages to only
-  **250 different numbers in 24 hours**. Salesmen beyond that on a busy day would not get their reminder
-  (the server retries and logs an alert, so nothing disappears silently). With verification, the limit is
-  at least 1,000 different numbers a day. Verification needs the company's documents (GST certificate, PAN).
-
-## 4. Who should own the accounts
-Create every account (Supabase, Render, Meta / WhatsApp, Ola Maps, Expo, Google Play) in the **company's name with the
-company card**. Moving accounts later is slow and risky.
+*(Optional: Apple App Store license is ₹8,400/year if salesmen use iPhones).*
 
 ---
 
-## Sources
-- WhatsApp pricing: https://developers.facebook.com/documentation/business-messaging/whatsapp/pricing ,
-  https://whautomate.com/whatsapp-business-api-pricing-india , https://waba.nxccontrols.in/blog/10-best-whatsapp-api-providers-in-india
-- Limits without verification: https://www.conferbot.com/limits/whatsapp , https://blueticks.co/blog/whatsapp-api-without-meta-verification
-- Ola Maps pricing: https://maps.olakrutrim.com/pricing , https://maps.olakrutrim.com/pricing/update-2026
-- MapTiler (alternative, not used): https://www.maptiler.com/cloud/pricing/
+## 2. One-Time Setup Costs
+
+| Item | Cost | Purpose | Paid To |
+|---|---|---|---|
+| **Google Play Developer Account** | **₹2,125** ($25) | Lifetime license to publish & update the Android app on Google Play Store | Google |
+| **Dedicated Company SIM Card** | **~₹250** | Official WhatsApp Business Bot number (for sending OTPs & alerts) | Telecom (Jio/Airtel) |
+| **Apple Developer Account (Optional)** | **₹8,400** ($99/year) | Only required if salesmen or managers use iOS/iPhones | Apple |
+| **Custom Domain (Optional)** | **~₹800** / year | e.g., `api.jtaindia.com` (Professional API address) | Namecheap / GoDaddy |
+
+---
+
+## 3. Monthly Recurring Costs (Production Infrastructure)
+
+### A. Cloud Hosting & Database
+| Service | Plan | Monthly Cost | Purpose |
+|---|---|---|---|
+| **Supabase (PostgreSQL Database & Storage)** | **Pro Plan** | **₹2,125 / mo** ($25) | Secure cloud database, daily automated backups, 100 GB private storage for visit selfies and voice notes. |
+| **Render (Backend API Server)** | **Standard / Starter** | **₹2,125 / mo** ($25) | Always-on server handling 400 salesmen punch-ins, meeting sync, GPS tracking, and cron jobs. *(Can start on ₹600/mo Starter plan and upgrade if needed).* |
+
+---
+
+### B. WhatsApp Cloud API (Meta Official)
+Direct billing with Meta — **₹0 middleman or agency commission**. Pay-per-message on usage:
+
+| Message Type | Meta Template | Rate / Message | Estimated Vol / Month | Approx. Cost |
+|---|---|---|---|---|
+| **Login Verification (OTP)** | `jta_login_otp` (Authentication) | ~₹0.14 | ~300 OTPs (Salesmen stay logged in) | **~₹45** |
+| **Daily 8:00 AM Task Reminder** | `jta_visit_reminder` (Utility) | ~₹0.13 | ~12,000 to 15,000 messages (Follow-up client visits) | **₹1,600 – ₹1,950** |
+| **Night 10:00 PM Route Deviation Alert** | `jta_route_alert` (Utility) | ~₹0.13 | ~500 to 1,000 alerts to Managers | **₹65 – ₹130** |
+| **Total WhatsApp Monthly Cost** | | | | **~₹1,800 – ₹2,200 / mo** |
+
+*Note: Meta provides first 1,000 service conversations free every month.*
+
+---
+
+### C. Maps & App Updates
+| Service | Plan | Cost | Details |
+|---|---|---|---|
+| **Ola Maps (Indian Provider)** | Startup / Pay-as-you-go | **₹0 / mo** | **First 1,00,000 map requests/month are completely FREE.** Covers all daily salesman routing and live manager maps. |
+| **Expo EAS (App Delivery & OTA)** | Free Plan | **₹0 / mo** | Instant Over-The-Air (OTA) updates to salesmen phones without waiting for store approvals. |
+
+---
+
+## 4. Storage Scaling Plan (Long Term)
+The system retains **100% of visit records, client selfies, and voice notes for life**:
+- Supabase Pro includes **100 GB storage free**.
+- Extra storage above 100 GB costs ~$0.021/GB (~₹1.80 per GB per month).
+
+| Timeline | Total Stored Files | Approx Extra Storage Cost |
+|---|---|---|
+| **Months 1 – 3** | Under 100 GB | **₹0** (Included in Pro plan) |
+| **Month 6** | ~350 GB | **~₹450 / month** |
+| **Year 1** | ~750 GB | **~₹1,150 / month** |
+
+*(Cost Optimization: After 1 year, older archived recordings can be shifted to Cloudflare R2 / Backblaze at ₹0.50/GB if needed, keeping everything accessible).*
+
+---
+
+## 5. Billing Best Practices for Client
+1. **Ownership:** All accounts (Google Play, Meta Business, Render, Supabase) should be created using the **company's official email address and company credit/debit card**.
+2. **Meta Business Verification:** Submit company GST / PAN certificate in Meta Business Suite to unlock messaging limits to 1,000+ recipients per day.
