@@ -134,6 +134,7 @@ export type FieldStatus = 'In meeting' | 'On the road' | 'Day ended' | 'Not star
 export interface SalesmanProgress {
   id: string;
   name: string;
+  phone?: string;
   initials: string;
   status: FieldStatus;
   visits: number; // today

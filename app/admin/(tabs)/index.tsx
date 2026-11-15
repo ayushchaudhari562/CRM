@@ -108,9 +108,16 @@ export default function AdminHomeScreen() {
             Welcome in,{'\n'}
             {user?.name.split(' ')[0] ?? 'Manager'}
           </Text>
-          <Text style={[styles.salesmanCount, { color: theme.colors.muted }]}>
-            {overview.salesmenCount} salesmen
-          </Text>
+          <Pressable
+            onPress={() => router.push('/admin/monitoring')}
+            accessibilityRole="button"
+            accessibilityLabel="Manage team"
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}
+          >
+            <Text style={[styles.salesmanCount, { color: theme.colors.accent }]}>
+              {overview.salesmenCount} salesmen · Manage Team →
+            </Text>
+          </Pressable>
         </View>
 
         {/* 86 Visits Today Ring */}

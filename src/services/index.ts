@@ -248,6 +248,10 @@ export const crmService = {
   getMeeting: (id: string) => request<Meeting>(`/admin/meetings/${encodeURIComponent(id)}`),
   addSalesman: (input: CreateSalesmanInput) =>
     request<AppUser>('/admin/salesmen', { method: 'POST', body: input }),
+  deactivateSalesman: (id: string) =>
+    request<{ ok: boolean }>(`/admin/salesmen/${encodeURIComponent(id)}/deactivate`, {
+      method: 'POST',
+    }),
   getAllFollowUps: (scope: FollowUpScope, salesmanId?: string) =>
     request<AdminFollowUp[]>(
       `/admin/followups?scope=${scope}${salesmanId ? `&salesmanId=${encodeURIComponent(salesmanId)}` : ''}`,

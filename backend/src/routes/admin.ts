@@ -33,6 +33,7 @@ async function todayProgress(): Promise<SalesmanProgress[]> {
     return {
       id: s.id,
       name: s.name,
+      phone: s.phone,
       initials: initials(s.name),
       status,
       visits: s.meetings.length,
