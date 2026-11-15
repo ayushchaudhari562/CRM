@@ -20,6 +20,7 @@ function sign(payload: object): string {
 const sameText = (a: string, b: string) => a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
 
 /** Returns the phone inside a valid dev token, or null if it is not a (valid) dev token. */
+
 export function phoneFromDevToken(token: string): string | null {
   if (!env.devJwtSecret) return null;
   const [h, p, sig] = token.split('.');
