@@ -7,6 +7,9 @@ import {
   ScrollView,
   Modal,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Keyboard,
 } from 'react-native';
 import {
   MapPin,
@@ -267,8 +270,23 @@ export function WeeklyRoutePlanCard() {
       )}
 
       {/* Plan Entry / Edit Modal */}
-      <Modal visible={modalOpen} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
+      <Modal
+        visible={modalOpen}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setModalOpen(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+          <Pressable
+            style={styles.modalBackdropPressable}
+            onPress={() => {
+              Keyboard.dismiss();
+              setModalOpen(false);
+            }}
+          />
           <View style={[styles.modalSheet, { backgroundColor: theme.colors.surface }]}>
             {/* Modal Header */}
             <View style={styles.modalHeader}>
@@ -290,7 +308,12 @@ export function WeeklyRoutePlanCard() {
               </Pressable>
             </View>
 
-            <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+            <ScrollView
+              style={styles.modalBody}
+              contentContainerStyle={styles.modalBodyContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
               {/* Number of Clients Input */}
               <View style={styles.countRow}>
                 <Field
@@ -385,7 +408,7 @@ export function WeeklyRoutePlanCard() {
               </View>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </Card>
   );
@@ -646,17 +669,27 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.65)',
     justifyContent: 'flex-end',
   },
+  modalBackdropPressable: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
   modalSheet: {
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    padding: 20,
-    maxHeight: '90%',
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: Platform.OS === 'ios' ? 28 : 18,
+    maxHeight: '92%',
+    flexShrink: 1,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 16,
+    marginBottom: 14,
   },
   modalTitle: {
     fontFamily: fonts.semibold,
@@ -671,7 +704,10 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   modalBody: {
-    maxHeight: 450,
+    flexShrink: 1,
+  },
+  modalBodyContent: {
+    paddingBottom: 16,
   },
   countRow: {
     marginBottom: 12,
@@ -698,6 +734,7 @@ const styles = StyleSheet.create({
   modalActions: {
     flexDirection: 'row',
     gap: 12,
-    marginTop: 16,
+    marginTop: 12,
+    paddingTop: 6,
   },
 });
