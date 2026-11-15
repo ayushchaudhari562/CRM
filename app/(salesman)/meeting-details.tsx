@@ -228,7 +228,7 @@ export default function MeetingDetailsScreen() {
   return (
     <KeyboardAvoidingView
       style={[styles.container, { backgroundColor: theme.colors.bg }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <View style={styles.topBar}>
         <Pressable
@@ -480,7 +480,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 20,
     paddingTop: 8,
-    paddingBottom: 28,
+    paddingBottom: 48,
     gap: 16,
     flexGrow: 1,
   },

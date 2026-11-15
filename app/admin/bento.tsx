@@ -7,13 +7,16 @@ import {
   Pressable,
   useWindowDimensions,
   Modal,
+  KeyboardAvoidingView,
+  Platform,
+  Keyboard,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import Svg, { Rect, Path, Circle } from 'react-native-svg';
 import { MapPin, Search, X } from 'lucide-react-native';
 import { useTheme, fonts } from '../../src/theme';
-import { Button, Field, LoadingView, ErrorView } from '../../src/components';
+import { Button, Field, LoadingView, ErrorView, VoicePlayer } from '../../src/components';
 import { APP_NAME } from '../../src/config';
 import { crmService } from '../../src/services';
 import { formatDay, formatINR, formatINRShort, timeAgo } from '../../src/utils/format';
@@ -610,9 +613,14 @@ export default function AdminWebBentoScreen() {
                 <Text style={[styles.aiSummaryText, { color: theme.colors.text }]}>
                   AI summary: {latestVoice.aiSummary}
                 </Text>
-                <Text style={[styles.tileLabel, { color: theme.colors.muted }]}>
-                  Audio playback needs file storage (coming soon).
-                </Text>
+                {latestVoice.voiceNoteUrl ? (
+                  <View style={{ marginTop: 8 }}>
+                    <VoicePlayer
+                      uri={latestVoice.voiceNoteUrl}
+                      seconds={latestVoice.voiceNoteDuration}
+                    />
+                  </View>
+                ) : null}
               </>
             ) : (
               <Text style={[styles.tileLabel, { color: theme.colors.muted, marginTop: 2 }]}>
@@ -630,7 +638,17 @@ export default function AdminWebBentoScreen() {
         animationType="slide"
         onRequestClose={() => setShowAddModal(false)}
       >
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+          <Pressable
+            style={styles.modalBackdropPressable}
+            onPress={() => {
+              Keyboard.dismiss();
+              setShowAddModal(false);
+            }}
+          />
           <View
             style={[
               styles.modalBox,
@@ -681,7 +699,7 @@ export default function AdminWebBentoScreen() {
               size="normal"
             />
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </ScrollView>
   );
@@ -991,6 +1009,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
+  },
+  modalBackdropPressable: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
   modalBox: {
     borderRadius: 24,

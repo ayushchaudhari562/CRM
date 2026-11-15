@@ -1,5 +1,15 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Modal } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Pressable,
+  Modal,
+  KeyboardAvoidingView,
+  Platform,
+  Keyboard,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { X, LogOut } from 'lucide-react-native';
@@ -202,7 +212,17 @@ export default function AdminHomeScreen() {
         animationType="slide"
         onRequestClose={() => setShowAddModal(false)}
       >
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+          <Pressable
+            style={styles.modalBackdropPressable}
+            onPress={() => {
+              Keyboard.dismiss();
+              setShowAddModal(false);
+            }}
+          />
           <View
             style={[
               styles.modalBox,
@@ -253,7 +273,7 @@ export default function AdminHomeScreen() {
               size="normal"
             />
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </ScrollView>
   );
@@ -381,11 +401,19 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     padding: 16,
   },
+  modalBackdropPressable: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
   modalBox: {
     borderRadius: 24,
     padding: 20,
     gap: 16,
     borderWidth: 1,
+    marginBottom: Platform.OS === 'ios' ? 16 : 8,
   },
   modalHeader: {
     flexDirection: 'row',
