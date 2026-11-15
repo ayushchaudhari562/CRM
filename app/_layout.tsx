@@ -4,6 +4,7 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { QueryClientProvider } from '@tanstack/react-query';
+import * as Updates from 'expo-updates';
 import {
   useFonts,
   Inter_400Regular,
@@ -41,10 +42,31 @@ function useRestoreSession() {
   }, [setUser, setAuthReady]);
 }
 
+function useAutoUpdate() {
+  useEffect(() => {
+    if (__DEV__) return;
+    let isMounted = true;
+    async function check() {
+      try {
+        const update = await Updates.checkForUpdateAsync();
+        if (update.isAvailable && isMounted) {
+          await Updates.fetchUpdateAsync();
+          await Updates.reloadAsync();
+        }
+      } catch {}
+    }
+    check();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+}
+
 function AppContent() {
   const { theme } = useTheme();
   const { offlineMode, user, authReady } = useAppStore();
   useRestoreSession();
+  useAutoUpdate();
 
   if (!authReady) return <Loading />;
   const role = user?.role;
