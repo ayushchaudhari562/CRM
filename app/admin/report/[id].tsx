@@ -1,9 +1,9 @@
 // Admin: one visit in detail + that salesman's visits on the same day. Data from the API.
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, Pressable, Image, Modal } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
-import { ChevronLeft, Camera, MapPin, Mic, Paperclip, Store } from 'lucide-react-native';
+import { ChevronLeft, Camera, MapPin, Mic, Paperclip, Store, X, Eye } from 'lucide-react-native';
 import { useTheme, fonts } from '../../../src/theme';
 import {
   Card,
@@ -23,6 +23,7 @@ export default function AdminMeetingReportScreen() {
   const { theme } = useTheme();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   const meeting = useQuery({
     queryKey: ['admin-meeting', id],
@@ -135,10 +136,40 @@ export default function AdminMeetingReportScreen() {
                 : 'GPS not captured (permission denied)'
             }
           />
-          <ProofRow
-            icon={<Camera size={16} color={theme.colors.muted} />}
-            text={m.selfieUrl ? 'Selfie taken (image viewer needs file storage)' : 'No selfie'}
-          />
+          {m.selfieUrl ? (
+            <View style={styles.selfieBlock}>
+              <View style={styles.iconRow}>
+                <Camera size={16} color={theme.colors.accent} />
+                <Text style={[styles.body, text]}>Check-in selfie</Text>
+                <Text style={[styles.small, muted]}>· Tap to expand</Text>
+              </View>
+              <Pressable
+                onPress={() => setSelectedImage(m.selfieUrl)}
+                style={({ pressed }) => [
+                  styles.selfieCard,
+                  { backgroundColor: theme.colors.surface2, borderColor: theme.colors.border },
+                  pressed && { opacity: 0.85 },
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="View full size selfie"
+              >
+                <Image
+                  source={{ uri: m.selfieUrl }}
+                  style={styles.selfieImg}
+                  resizeMode="cover"
+                />
+                <View style={styles.selfieOverlay}>
+                  <Eye size={14} color="#FFFFFF" />
+                  <Text style={styles.selfieOverlayText}>Tap to view full screen</Text>
+                </View>
+              </Pressable>
+            </View>
+          ) : (
+            <ProofRow
+              icon={<Camera size={16} color={theme.colors.muted} />}
+              text="No selfie captured"
+            />
+          )}
           <Text style={[styles.small, muted]}>
             Check-in {formatTime(m.checkInAt)}
             {m.checkOutAt ? ` · Check-out ${formatTime(m.checkOutAt)}` : ' · Still in meeting'}
@@ -207,6 +238,36 @@ export default function AdminMeetingReportScreen() {
           )}
         </Card>
       </ScrollView>
+
+      {/* Fullscreen Image Preview Modal */}
+      <Modal
+        visible={!!selectedImage}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSelectedImage(null)}
+      >
+        <View style={styles.imageModalOverlay}>
+          <Pressable
+            style={styles.imageModalBackdrop}
+            onPress={() => setSelectedImage(null)}
+          />
+          <Pressable
+            style={styles.imageModalCloseBtn}
+            onPress={() => setSelectedImage(null)}
+            accessibilityRole="button"
+            accessibilityLabel="Close image"
+          >
+            <X size={22} color="#FFFFFF" />
+          </Pressable>
+          {selectedImage ? (
+            <Image
+              source={{ uri: selectedImage }}
+              style={styles.fullImage}
+              resizeMode="contain"
+            />
+          ) : null}
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -251,4 +312,68 @@ const styles = StyleSheet.create({
   rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   iconRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  selfieBlock: {
+    gap: 8,
+    marginTop: 4,
+    marginBottom: 4,
+  },
+  selfieCard: {
+    width: '100%',
+    height: 190,
+    borderRadius: 14,
+    borderWidth: 1,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  selfieImg: {
+    width: '100%',
+    height: '100%',
+  },
+  selfieOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  selfieOverlayText: {
+    fontFamily: fonts.medium,
+    fontSize: 12,
+    color: '#FFFFFF',
+  },
+  imageModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.92)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  imageModalBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  imageModalCloseBtn: {
+    position: 'absolute',
+    top: 48,
+    right: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+  },
+  fullImage: {
+    width: '94%',
+    height: '80%',
+  },
 });

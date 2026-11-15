@@ -4,7 +4,7 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
-import { ChevronLeft, Lock, MapPin, Mic, Paperclip, Phone, Store } from 'lucide-react-native';
+import { ChevronLeft, Lock, MapPin, Mic, Paperclip, Phone, Store, Camera } from 'lucide-react-native';
 import { useTheme, fonts } from '../../../src/theme';
 import {
   Card,
@@ -214,6 +214,12 @@ function VisitCard({ m }: { m: Meeting }) {
           {m.location ? `GPS: ${m.location.address ?? 'captured'}` : 'GPS not captured'}
           {m.nextVisit ? ` · Next visit ${formatDateTime(m.nextVisit)}` : ''}
         </Text>
+        {m.selfieUrl ? (
+          <View style={styles.iconRow}>
+            <Camera size={12} color={theme.colors.accent} />
+            <Text style={[styles.small, { color: theme.colors.accent }]}>Selfie</Text>
+          </View>
+        ) : null}
         {m.attachments.length ? (
           <View style={styles.iconRow}>
             <Paperclip size={12} color={theme.colors.muted} />
